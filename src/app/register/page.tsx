@@ -1,8 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -18,6 +20,7 @@ export default function RegisterPage() {
     targetSalary: '$30-40K USD',
   });
   const [loading, setLoading] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
 
@@ -110,18 +113,38 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <Label htmlFor="startDate" className="text-gray-700 dark:text-gray-200">
+            <Label className="text-gray-700 dark:text-gray-200">
               Bootcamp Start Date
             </Label>
-            <Input
-              id="startDate"
-              name="startDate"
-              type="date"
-              required
-              value={formData.startDate}
-              onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-            />
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full mt-1 justify-start text-left font-normal dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  {formData.startDate 
+                    ? new Date(formData.startDate).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    : 'Select start date'
+                  }
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={formData.startDate ? new Date(formData.startDate) : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      setFormData(prev => ({ ...prev, startDate: date.toISOString().split('T')[0] }))
+                      setCalendarOpen(false)
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div>

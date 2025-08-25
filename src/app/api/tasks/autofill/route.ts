@@ -4,19 +4,19 @@ import { Priority, TaskCategory } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 
 const bootcampSchedule = [
-  { title: 'Wake up', category: TaskCategory.LEARNING, targetMinutes: null, priority: Priority.MEDIUM, time: '7:45' },
-  { title: 'Exercise', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.HIGH, time: '8:00-9:00' },
-  { title: 'Breakfast, cleaning and bath', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.MEDIUM, time: '9:00-10:00' },
-  { title: 'DSA Practice', category: TaskCategory.DSA, targetMinutes: 75, priority: Priority.HIGH, time: '10:00-11:15' },
-  { title: 'Break', category: TaskCategory.LEARNING, targetMinutes: 15, priority: Priority.LOW, time: '11:15-11:30' },
-  { title: 'Work/Project Development', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '11:30-12:45' },
-  { title: 'Lunch', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.MEDIUM, time: '12:45-1:45' },
-  { title: 'Work Session', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '2:00-3:15' },
-  { title: 'Break', category: TaskCategory.LEARNING, targetMinutes: 15, priority: Priority.LOW, time: '3:15-3:30' },
-  { title: 'Work Session', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '3:30-4:45' },
-  { title: 'Project Time', category: TaskCategory.PROJECT, targetMinutes: 120, priority: Priority.HIGH, time: '5:00-7:00' },
-  { title: 'Badminton, dinner, bath etc', category: TaskCategory.LEARNING, targetMinutes: 240, priority: Priority.MEDIUM, time: '7:00-11:00' },
-  { title: 'Daily reflection writing', category: TaskCategory.WRITING, targetMinutes: 60, priority: Priority.HIGH, time: '11:00-12:00' },
+  { title: 'Wake up', category: TaskCategory.LEARNING, targetMinutes: null, priority: Priority.MEDIUM, time: '7:45', scheduledTime: '07:45' },
+  { title: 'Exercise', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.HIGH, time: '8:00-9:00', scheduledTime: '08:00' },
+  { title: 'Breakfast, cleaning and bath', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.MEDIUM, time: '9:00-10:00', scheduledTime: '09:00' },
+  { title: 'DSA Practice', category: TaskCategory.DSA, targetMinutes: 75, priority: Priority.HIGH, time: '10:00-11:15', scheduledTime: '10:00' },
+  { title: 'Break', category: TaskCategory.LEARNING, targetMinutes: 15, priority: Priority.LOW, time: '11:15-11:30', scheduledTime: '11:15' },
+  { title: 'Work/Project Development', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '11:30-12:45', scheduledTime: '11:30' },
+  { title: 'Lunch', category: TaskCategory.LEARNING, targetMinutes: 60, priority: Priority.MEDIUM, time: '12:45-1:45', scheduledTime: '12:45' },
+  { title: 'Work Session', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '2:00-3:15', scheduledTime: '14:00' },
+  { title: 'Break', category: TaskCategory.LEARNING, targetMinutes: 15, priority: Priority.LOW, time: '3:15-3:30', scheduledTime: '15:15' },
+  { title: 'Work Session', category: TaskCategory.PROJECT, targetMinutes: 75, priority: Priority.HIGH, time: '3:30-4:45', scheduledTime: '15:30' },
+  { title: 'Project Time', category: TaskCategory.PROJECT, targetMinutes: 120, priority: Priority.HIGH, time: '5:00-7:00', scheduledTime: '17:00' },
+  { title: 'Badminton, dinner, bath etc', category: TaskCategory.LEARNING, targetMinutes: 240, priority: Priority.MEDIUM, time: '7:00-11:00', scheduledTime: '19:00' },
+  { title: 'Daily reflection writing', category: TaskCategory.WRITING, targetMinutes: 60, priority: Priority.HIGH, time: '11:00-12:00', scheduledTime: '23:00' },
 ];
 
 export async function POST(request: NextRequest) {
@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       category: TaskCategory;
       targetMinutes: number | null;
       priority: Priority;
+      scheduledTime: string;
       userId: string;
     }[] = [];
     for (const date of dates) {
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
             category: scheduleItem.category,
             targetMinutes: scheduleItem.targetMinutes,
             priority: scheduleItem.priority,
+            scheduledTime: scheduleItem.scheduledTime,
             userId: user.id,
           });
         }

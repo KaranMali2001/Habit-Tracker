@@ -25,6 +25,7 @@ model DailyTask {
   targetMinutes Int?     // Expected time to spend
   actualMinutes Int?     // Actual time spent
   priority      Priority @default(MEDIUM)
+  scheduledTime String?  // Time in HH:MM format (e.g., "09:30")
   
   // Relations
   userId      String

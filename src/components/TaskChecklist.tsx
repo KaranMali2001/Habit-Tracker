@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { DailyTask, TaskCategory, Priority } from '@prisma/client'
 import { Button } from '@/components/ui/button'
+import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
@@ -47,12 +49,15 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
     title: '',
     category: 'DSA' as TaskCategory,
     priority: 'MEDIUM' as Priority,
-    targetMinutes: undefined as number | undefined
+    targetMinutes: undefined as number | undefined,
+    scheduledTime: '' as string
   })
   const [autoFillDates, setAutoFillDates] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 2 months from now
   })
+  const [startDateCalendarOpen, setStartDateCalendarOpen] = useState(false)
+  const [endDateCalendarOpen, setEndDateCalendarOpen] = useState(false)
 
   const handleTaskComplete = (task: DailyTask, completed: boolean) => {
     onTaskUpdate(task.id, { completed })
@@ -74,6 +79,7 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
     onTaskCreate({
       ...newTask,
       targetMinutes: newTask.targetMinutes ?? null,
+      scheduledTime: newTask.scheduledTime || null,
       date: new Date(date),
       completed: false,
       skipReason: null,
@@ -84,7 +90,8 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
       title: '',
       category: 'DSA',
       priority: 'MEDIUM',
-      targetMinutes: undefined
+      targetMinutes: undefined,
+      scheduledTime: ''
     })
     setShowAddTask(false)
   }
@@ -143,10 +150,32 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
       </div>
 
       <div className="space-y-3">
-        {tasks.map((task) => (
-          <div key={task.id} className={`flex items-center space-x-3 p-3 rounded-lg border border-border ${
-            task.skipReason ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
-            task.completed ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
+        {tasks.length === 0 ? (
+          // Empty State
+          <div className="text-center py-12">
+            <div className="bg-muted/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+              <Calendar className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium text-card-foreground mb-2">No tasks for today</h3>
+            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+              Get started by adding tasks manually or use auto-fill to create tasks from your bootcamp schedule.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <Button onClick={() => setShowAddTask(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add First Task
+              </Button>
+              <Button onClick={() => setShowAutoFill(true)} size="sm" variant="outline">
+                <Calendar className="w-4 h-4 mr-2" />
+                Auto-Fill Schedule
+              </Button>
+            </div>
+          </div>
+        ) : (
+          tasks.map((task) => (
+            <div key={task.id} className={`flex items-center space-x-3 p-3 rounded-lg border border-border ${
+              task.skipReason ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
+              task.completed ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
             'bg-muted/50'
           }`}>
             <Checkbox
@@ -251,7 +280,8 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
               </Button>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       {/* Add Task Modal */}
@@ -316,6 +346,18 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
               />
             </div>
 
+            <div>
+              <Label htmlFor="scheduledTime">Scheduled Time (Optional)</Label>
+              <Input
+                id="scheduledTime"
+                type="time"
+                value={newTask.scheduledTime}
+                onChange={(e) => setNewTask(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                placeholder="HH:MM"
+                className="mt-1"
+              />
+            </div>
+
             <div className="flex space-x-2">
               <Button onClick={handleAddTask} className="flex-1">
                 Add Task
@@ -366,50 +408,131 @@ export default function TaskChecklist({ tasks, date, onTaskUpdate, onTaskCreate,
           </DialogHeader>
           
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              This will create daily tasks based on your bootcamp schedule for the selected date range.
-              Existing tasks will not be duplicated.
-            </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>📅 Auto-Fill Schedule</strong><br/>
+                Create a full day's tasks with proper timing based on your bootcamp routine. 
+                Perfect for maintaining consistency and structure in your daily habits.
+              </p>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  setAutoFillDates({ startDate: today, endDate: today });
+                }}
+              >
+                Today Only
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                  setAutoFillDates({ startDate: today, endDate: nextWeek });
+                }}
+              >
+                Next Week
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                  setAutoFillDates({ startDate: today, endDate: nextMonth });
+                }}
+              >
+                Next Month
+              </Button>
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={autoFillDates.startDate}
-                  onChange={(e) => setAutoFillDates(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="mt-1"
-                />
+                <Label>Start Date</Label>
+                <Popover open={startDateCalendarOpen} onOpenChange={setStartDateCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-1 justify-start text-left font-normal"
+                    >
+                      {new Date(autoFillDates.startDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={new Date(autoFillDates.startDate)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setAutoFillDates(prev => ({ ...prev, startDate: date.toISOString().split('T')[0] }))
+                          setStartDateCalendarOpen(false)
+                        }
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div>
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={autoFillDates.endDate}
-                  onChange={(e) => setAutoFillDates(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="mt-1"
-                />
+                <Label>End Date</Label>
+                <Popover open={endDateCalendarOpen} onOpenChange={setEndDateCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-1 justify-start text-left font-normal"
+                    >
+                      {new Date(autoFillDates.endDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={new Date(autoFillDates.endDate)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setAutoFillDates(prev => ({ ...prev, endDate: date.toISOString().split('T')[0] }))
+                          setEndDateCalendarOpen(false)
+                        }
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
             <div className="bg-muted p-3 rounded text-xs text-muted-foreground">
-              <strong>Daily Schedule:</strong>
-              <div className="grid grid-cols-2 gap-1 mt-2">
-                <div>• Wake up ({formatTimeToAMPM('7:45')})</div>
-                <div>• Exercise ({formatTimeToAMPM('8:00-9:00')})</div>
-                <div>• Breakfast & cleaning ({formatTimeToAMPM('9:00-10:00')})</div>
-                <div>• DSA Practice ({formatTimeToAMPM('10:00-11:15')})</div>
-                <div>• Work/Project ({formatTimeToAMPM('11:30-12:45')})</div>
-                <div>• Lunch ({formatTimeToAMPM('12:45-1:45')})</div>
-                <div>• Work Session ({formatTimeToAMPM('2:00-3:15')})</div>
-                <div>• Work Session ({formatTimeToAMPM('3:30-4:45')})</div>
-                <div>• Project Time ({formatTimeToAMPM('5:00-7:00')})</div>
-                <div>• Recreation & Dinner ({formatTimeToAMPM('7:00-11:00')})</div>
-                <div>• Daily Reflection ({formatTimeToAMPM('11:00-12:00')})</div>
+              <strong>📋 Your Bootcamp Schedule Preview:</strong>
+              <div className="grid grid-cols-1 gap-1 mt-2 max-h-32 overflow-y-auto">
+                <div>🌅 7:45 AM - Wake up</div>
+                <div>💪 8:00 AM - Exercise (60 min)</div>
+                <div>🍳 9:00 AM - Breakfast & cleaning (60 min)</div>
+                <div>🧠 10:00 AM - DSA Practice (75 min)</div>
+                <div>☕ 11:15 AM - Break (15 min)</div>
+                <div>💻 11:30 AM - Work/Project Development (75 min)</div>
+                <div>🍽️ 12:45 PM - Lunch (60 min)</div>
+                <div>⚡ 2:00 PM - Work Session (75 min)</div>
+                <div>☕ 3:15 PM - Break (15 min)</div>
+                <div>💼 3:30 PM - Work Session (75 min)</div>
+                <div>🚀 5:00 PM - Project Time (120 min)</div>
+                <div>🏸 7:00 PM - Badminton & dinner (240 min)</div>
+                <div>📝 11:00 PM - Daily reflection (60 min)</div>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                ⏰ All tasks include precise timing • 📊 Existing tasks won't be duplicated
+              </p>
             </div>
 
             <div className="flex space-x-2">

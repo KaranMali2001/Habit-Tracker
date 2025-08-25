@@ -6,7 +6,7 @@ import { TaskCategory, Priority } from '@prisma/client'
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const { date, title, category, targetMinutes, priority } = await request.json()
+    const { date, title, category, targetMinutes, priority, scheduledTime } = await request.json()
 
     if (!date || !title || !category) {
       return NextResponse.json(
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
         category: category as TaskCategory,
         targetMinutes,
         priority: priority as Priority || 'MEDIUM',
+        scheduledTime,
         userId: user.id
       }
     })
