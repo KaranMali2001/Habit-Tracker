@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DailyTask {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  title       String
+  category    TaskCategory
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  
+  // If not completed, user can add reason
+  skipReason  String?  // Auto-added to daily notes
+  
+  // Task details
+  targetMinutes Int?     // Expected time to spend
+  actualMinutes Int?     // Actual time spent
+  priority      Priority @default(MEDIUM)
+  
+  // Relations
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+  dailyNote   DailyNote? @relation(fields: [dailyNoteId], references: [id])
+  dailyNoteId String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, date, title])
+}
+
+model DailyNote {
+  id          String   @id @default(cuid())
+  date        DateTime @unique @db.Date
+  
+  // Auto-generated content from tasks
+  autoContent String?  // Generated from skip reasons
+  
+  // User-written content  
+  userContent String?  // User adds their own notes
+  learnings   String?
+  challenges  String?
+  tomorrowPlan String?
+  
+  // Metrics (auto-calculated)
+  totalTasks     Int @default(0)
+  completedTasks Int @default(0)
+  completionRate Float @default(0)
+  totalMinutes   Int @default(0)
+  
+  // Mood tracking
+  energyLevel Int @default(5) // 1-10
+  mood        Mood @default(NEUTRAL)
+  
+  // Relations
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  tasks     DailyTask[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+model WeeklyReport {
+  id         String @id @default(cuid())
+  weekNumber Int    // 1-8 for bootcamp weeks
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  
+  // Auto-generated metrics
+  totalTasks       Int @default(0)
+  completedTasks   Int @default(0)
+  avgCompletionRate Float @default(0)
+  totalMinutes     Int @default(0)
+  
+  // Category breakdown
+  dsaTasksCompleted     Int @default(0)
+  projectTasksCompleted Int @default(0)
+  writingTasksCompleted Int @default(0)
+  
+  // Auto-generated summary
+  autoSummary String? // Generated from daily notes
+  
+  // User additions
+  blogDraft   String? // Weekly blog post draft
+  reflections String?
+  nextWeekGoals String?
+  
+  // Publishing
+  published    Boolean @default(false)
+  publishedAt  DateTime?
+  
+  userId   String
+  user     User @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, weekNumber])
+}
+
+model User {
+  id        String @id @default(cuid())
+  email     String @unique
+  password  String // Hashed
+  name      String
+  
+  // Bootcamp info
+  startDate DateTime @db.Date
+  targetRole String @default("Backend Developer")
+  targetSalary String @default("$30-40K USD")
+  
+  dailyTasks    DailyTask[]
+  dailyNotes    DailyNote[]
+  weeklyReports WeeklyReport[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Enums
+enum TaskCategory {
+  DSA
+  PROJECT
+  WRITING
+  LEARNING
+  APPLICATION
+  INTERVIEW_PREP
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Mood {
+  EXCELLENT
+  GOOD
+  NEUTRAL
+  LOW
+  TERRIBLE
+}
