@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader } from '@/components/ui/spinner';
+import DashboardLoader from '@/components/loading';
 import { Textarea } from '@/components/ui/textarea';
 import { DailyNote, DailyTask, Priority, TaskCategory } from '@prisma/client';
 import {
@@ -25,20 +25,22 @@ import {
   Save,
   SkipForward,
   StickyNote,
+  Target,
+  Trophy,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
-export default function Dashboard() {
+export default function Dashboard({ task, note }: { task: DailyTask[]; note: DailyNote }) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [tasks, setTasks] = useState<DailyTask[]>([]);
-  const [dailyNote, setDailyNote] = useState<DailyNote | null>(null);
+  const [tasks, setTasks] = useState<DailyTask[]>(task);
+  const [dailyNote, setDailyNote] = useState<DailyNote | null>(note);
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [skipModalOpen, setSkipModalOpen] = useState(false);
@@ -48,7 +50,7 @@ export default function Dashboard() {
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFillDates, setAutoFillDates] = useState({
     startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 2 months from now
+    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 months from now
   });
   const [showSkippedModal, setShowSkippedModal] = useState(false);
   const [startDateCalendarOpen, setStartDateCalendarOpen] = useState(false);
@@ -78,7 +80,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedDate !== new Date().toISOString().split('T')[0]) {
       fetchDayData();
     }
   }, [selectedDate, user]);
@@ -377,40 +379,40 @@ export default function Dashboard() {
   };
 
   const handleAutoFill = async () => {
-    setIsAutoFilling(true)
-    const toastId = toast.loading('Creating tasks...')
-    
+    setIsAutoFilling(true);
+    const toastId = toast.loading('Creating tasks...');
+
     try {
       const response = await fetch('/api/tasks/autofill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(autoFillDates)
-      })
+        body: JSON.stringify(autoFillDates),
+      });
 
       if (response.ok) {
-        const result = await response.json()
-        toast.success(`Successfully created ${result.tasksCreated} tasks!`, { id: toastId })
-        setShowAutoFill(false)
+        const result = await response.json();
+        toast.success(`Successfully created ${result.tasksCreated} tasks!`, { id: toastId });
+        setShowAutoFill(false);
         // Refresh the data
-        await fetchDayData()
+        await fetchDayData();
       } else {
-        const error = await response.json()
-        toast.error(`Error: ${error.error}`, { id: toastId })
+        const error = await response.json();
+        toast.error(`Error: ${error.error}`, { id: toastId });
       }
     } catch (error) {
-      console.error('Auto-fill failed:', error)
-      toast.error('Failed to auto-fill tasks. Please try again.', { id: toastId })
+      console.error('Auto-fill failed:', error);
+      toast.error('Failed to auto-fill tasks. Please try again.', { id: toastId });
     } finally {
-      setIsAutoFilling(false)
+      setIsAutoFilling(false);
     }
   };
 
   if (loading) {
-    return <Loader message="Loading your dashboard..." fullScreen />;
+    return <DashboardLoader loadingText="Loading your dashboard..." />;
   }
 
   const TaskCard = ({ task, status }: { task: DailyTask; status: string }) => (
-    <div className="p-4 bg-neutral-700/40 rounded-lg border border-neutral-600/50 hover:border-rose-400/40 transition-colors">
+    <div className="p-4 bg-card/60 rounded-lg border border-border hover:border-primary/40 transition-colors">
       <div className="flex items-start justify-between mb-3">
         <h4 className="font-medium text-neutral-50 text-sm leading-tight">{task.title}</h4>
         <div className="flex gap-1 ml-2">
@@ -562,14 +564,14 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="bg-neutral-800/60 border-b border-neutral-600/50">
+      <header className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-rose-300">Power Board</h1>
-              {user && <span className="text-sm text-neutral-300">Welcome back, {user.name}</span>}
+              <h1 className="text-xl font-semibold text-primary">Power Board</h1>
+              {user && <span className="text-sm text-muted-foreground">Welcome back, {user.name}</span>}
             </div>
 
             {/* Date Navigation */}
@@ -589,7 +591,7 @@ export default function Dashboard() {
                       {new Date(selectedDate).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
-                        year: 'numeric'
+                        year: 'numeric',
                       })}
                     </Button>
                   </PopoverTrigger>
@@ -653,6 +655,67 @@ export default function Dashboard() {
           </h2>
           <p className="text-neutral-300">Manage your daily tasks and track progress</p>
         </div>
+
+        {/* Bootcamp Timeline */}
+        {user && user.startDate && (
+          <Card className="bg-neutral-800/60 border-neutral-600/50 mb-8">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-rose-500/20 rounded-lg">
+                    <Target className="w-6 h-6 text-rose-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-rose-200">Bootcamp Journey</h3>
+                    <p className="text-sm text-neutral-400">{user.targetRole} • {user.targetSalary}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                  <span className="text-sm text-amber-300">
+                    Day {Math.floor((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-green-400 font-medium">
+                    Started: {new Date(user.startDate).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                  <span className="text-rose-400 font-medium">
+                    Target: {new Date(new Date(user.startDate).getTime() + (100 * 24 * 60 * 60 * 1000)).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                </div>
+                
+                <div className="relative h-3 bg-neutral-700 rounded-full overflow-hidden">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-500 via-amber-500 to-rose-500 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, ((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) / 100 * 100))}%`
+                    }}
+                  />
+                </div>
+                
+                <div className="flex justify-between text-xs text-neutral-400 mt-2">
+                  <span>Day 1</span>
+                  <span className="text-neutral-200">
+                    {Math.floor(((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) / 100 * 100)}% Complete
+                  </span>
+                  <span>Day 100</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-4 gap-4 mb-8">
           <Card className="bg-neutral-800/60 border-neutral-600/50">
@@ -856,7 +919,9 @@ export default function Dashboard() {
                 <CardContent className="p-4">
                   <div className="text-center py-4">
                     <SkipForward className="w-8 h-8 text-orange-400/60 mx-auto mb-2" />
-                    <p className="text-neutral-400 text-sm mb-2">{skippedTasksList.length} task{skippedTasksList.length !== 1 ? 's' : ''} skipped today</p>
+                    <p className="text-neutral-400 text-sm mb-2">
+                      {skippedTasksList.length} task{skippedTasksList.length !== 1 ? 's' : ''} skipped today
+                    </p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1013,17 +1078,15 @@ export default function Dashboard() {
                 <Calendar className="w-5 h-5" />
                 Auto-Fill Bootcamp Schedule
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">
-                Create tasks based on your bootcamp routine
-              </DialogDescription>
+              <DialogDescription className="text-neutral-300">Create tasks based on your bootcamp routine</DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3">
                 <p className="text-sm text-blue-200">
-                  <strong>📅 Auto-Fill Schedule</strong><br/>
-                  Create a full day's tasks with proper timing based on your bootcamp routine. 
-                  Perfect for maintaining consistency and structure.
+                  <strong>📅 Auto-Fill Schedule</strong>
+                  <br />
+                  Create a full day's tasks with proper timing based on your bootcamp routine. Perfect for maintaining consistency and structure.
                 </p>
               </div>
 
@@ -1032,8 +1095,12 @@ export default function Dashboard() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date().toISOString().split('T')[0];
-                    setAutoFillDates({ startDate: today, endDate: today });
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    const todayFormatted = `${year}-${month}-${day}`;
+                    setAutoFillDates({ startDate: todayFormatted, endDate: todayFormatted });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1043,9 +1110,20 @@ export default function Dashboard() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    setAutoFillDates({ startDate: today, endDate: nextWeek });
+                    const today = new Date();
+                    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                    
+                    const formatDate = (date: Date) => {
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    };
+                    
+                    setAutoFillDates({ 
+                      startDate: formatDate(today), 
+                      endDate: formatDate(nextWeek) 
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1055,16 +1133,27 @@ export default function Dashboard() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date().toISOString().split('T')[0];
-                    const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    setAutoFillDates({ startDate: today, endDate: nextMonth });
+                    const today = new Date();
+                    const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                    
+                    const formatDate = (date: Date) => {
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    };
+                    
+                    setAutoFillDates({ 
+                      startDate: formatDate(today), 
+                      endDate: formatDate(nextMonth) 
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
                   Next Month
                 </Button>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-neutral-200">Start Date</Label>
@@ -1077,7 +1166,7 @@ export default function Dashboard() {
                         {new Date(autoFillDates.startDate).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
-                          year: 'numeric'
+                          year: 'numeric',
                         })}
                       </Button>
                     </PopoverTrigger>
@@ -1087,16 +1176,20 @@ export default function Dashboard() {
                         selected={new Date(autoFillDates.startDate)}
                         onSelect={(date) => {
                           if (date) {
-                            setAutoFillDates(prev => ({ ...prev, startDate: date.toISOString().split('T')[0] }));
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const formattedDate = `${year}-${month}-${day}`;
+                            setAutoFillDates((prev) => ({ ...prev, startDate: formattedDate }));
                             setStartDateCalendarOpen(false);
                           }
                         }}
-                          className="bg-neutral-800 text-neutral-200"
+                        className="bg-neutral-800 text-neutral-200"
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
-                
+
                 <div>
                   <Label className="text-neutral-200">End Date</Label>
                   <Popover open={endDateCalendarOpen} onOpenChange={setEndDateCalendarOpen}>
@@ -1108,7 +1201,7 @@ export default function Dashboard() {
                         {new Date(autoFillDates.endDate).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
-                          year: 'numeric'
+                          year: 'numeric',
                         })}
                       </Button>
                     </PopoverTrigger>
@@ -1118,11 +1211,15 @@ export default function Dashboard() {
                         selected={new Date(autoFillDates.endDate)}
                         onSelect={(date) => {
                           if (date) {
-                            setAutoFillDates(prev => ({ ...prev, endDate: date.toISOString().split('T')[0] }));
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const formattedDate = `${year}-${month}-${day}`;
+                            setAutoFillDates((prev) => ({ ...prev, endDate: formattedDate }));
                             setEndDateCalendarOpen(false);
                           }
                         }}
-                          className="bg-neutral-800 text-neutral-200"
+                        className="bg-neutral-800 text-neutral-200"
                       />
                     </PopoverContent>
                   </Popover>
@@ -1150,23 +1247,11 @@ export default function Dashboard() {
             </div>
 
             <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAutoFill(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setShowAutoFill(false)} className="border-neutral-600 text-neutral-300">
                 Cancel
               </Button>
-              <Button 
-                onClick={handleAutoFill} 
-                disabled={isAutoFilling}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                {isAutoFilling ? (
-                  <>Creating Tasks...</>
-                ) : (
-                  'Auto-Fill Tasks'
-                )}
+              <Button onClick={handleAutoFill} disabled={isAutoFilling} className="bg-blue-500 hover:bg-blue-600 text-white">
+                {isAutoFilling ? <>Creating Tasks...</> : 'Auto-Fill Tasks'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1180,11 +1265,9 @@ export default function Dashboard() {
                 <SkipForward className="w-5 h-5" />
                 Skipped Tasks ({skippedTasksList.length})
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">
-                Manage your skipped tasks - you can move them back to your todo list
-              </DialogDescription>
+              <DialogDescription className="text-neutral-300">Manage your skipped tasks - you can move them back to your todo list</DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {skippedTasksList.length === 0 ? (
                 <div className="text-center py-8">
@@ -1202,9 +1285,7 @@ export default function Dashboard() {
                             {task.category}
                           </Badge>
                           <span className="text-xs text-orange-300 font-mono">{task.priority}</span>
-                          {task.targetMinutes && (
-                            <span className="text-xs text-orange-300">{task.targetMinutes}min</span>
-                          )}
+                          {task.targetMinutes && <span className="text-xs text-orange-300">{task.targetMinutes}min</span>}
                         </div>
                         {task.skipReason && (
                           <div className="text-xs text-orange-400 bg-orange-900/30 p-2 rounded border border-orange-600/20">
@@ -1232,11 +1313,7 @@ export default function Dashboard() {
             </div>
 
             <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowSkippedModal(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setShowSkippedModal(false)} className="border-neutral-600 text-neutral-300">
                 Close
               </Button>
             </DialogFooter>

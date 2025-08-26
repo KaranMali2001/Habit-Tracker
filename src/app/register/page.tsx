@@ -12,12 +12,12 @@ import { useState } from 'react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    startDate: '',
-    targetRole: 'Backend Developer',
-    targetSalary: '$30-40K USD',
+    email: "",
+    password: "",
+    name: "",
+
+    targetRole: "Backend Developer",
+    targetSalary: "$30-40K USD",
   });
   const [loading, setLoading] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -59,18 +59,20 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 transition-colors">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 transition-colors">
+      <div className="max-w-md w-full space-y-8 p-8 bg-card rounded-lg shadow-md border border-border">
         <div>
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100">Create Account</h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">Start tracking your bootcamp journey</p>
+          <h2 className="text-3xl font-bold text-center text-foreground">
+            Create Account
+          </h2>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Start tracking your bootcamp journey
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <Label htmlFor="name" className="text-gray-700 dark:text-gray-200">
-              Full Name
-            </Label>
+            <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
               name="name"
@@ -78,14 +80,12 @@ export default function RegisterPage() {
               required
               value={formData.name}
               onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="email" className="text-gray-700 dark:text-gray-200">
-              Email
-            </Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
@@ -93,14 +93,12 @@ export default function RegisterPage() {
               required
               value={formData.email}
               onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-gray-700 dark:text-gray-200">
-              Password
-            </Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               name="password"
@@ -108,74 +106,43 @@ export default function RegisterPage() {
               required
               value={formData.password}
               onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1"
             />
           </div>
 
           <div>
-            <Label className="text-gray-700 dark:text-gray-200">
-              Bootcamp Start Date
-            </Label>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full mt-1 justify-start text-left font-normal dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                >
-                  {formData.startDate 
-                    ? new Date(formData.startDate).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })
-                    : 'Select start date'
-                  }
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={formData.startDate ? new Date(formData.startDate) : undefined}
-                  onSelect={(date) => {
-                    if (date) {
-                      setFormData(prev => ({ ...prev, startDate: date.toISOString().split('T')[0] }))
-                      setCalendarOpen(false)
-                    }
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label>Bootcamp Start Date</Label>
           </div>
 
           <div>
-            <Label htmlFor="targetRole" className="text-gray-700 dark:text-gray-200">
-              Target Role
-            </Label>
+            <Label htmlFor="targetRole">Target Role</Label>
             <Input
               id="targetRole"
               name="targetRole"
               type="text"
               value={formData.targetRole}
               onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="targetSalary" className="text-gray-700 dark:text-gray-200">
-              Target Salary
-            </Label>
+            <Label htmlFor="targetSalary">Target Salary</Label>
             <Input
               id="targetSalary"
               name="targetSalary"
               type="text"
               value={formData.targetSalary}
               onChange={handleChange}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1"
             />
           </div>
 
-          {error && <div className="text-red-600 dark:text-red-400 text-sm text-center">{error}</div>}
+          {error && (
+            <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded p-2">
+              {error}
+            </div>
+          )}
 
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? (
@@ -184,12 +151,15 @@ export default function RegisterPage() {
                 <span>Creating Account...</span>
               </div>
             ) : (
-              'Create Account'
+              "Create Account"
             )}
           </Button>
 
           <div className="text-center">
-            <Link href="/login" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
+            <Link
+              href="/login"
+              className="text-sm text-accent hover:text-accent/80 transition-colors"
+            >
               Already have an account? Sign in
             </Link>
           </div>

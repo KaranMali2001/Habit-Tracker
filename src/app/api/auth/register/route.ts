@@ -4,38 +4,38 @@ import { hashPassword, setAuthCookie } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name, startDate, targetRole, targetSalary } = await request.json()
+    const { email, password, name, targetRole, targetSalary } =
+      await request.json();
 
-    if (!email || !password || !name || !startDate) {
+    if (!email || !password || !name || !targetRole || !targetSalary) {
       return NextResponse.json(
-        { error: 'Email, password, name, and start date are required' },
+        { error: "Email, password, name, and start date are required" },
         { status: 400 }
-      )
+      );
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email }
-    })
+      where: { email },
+    });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User already exists with this email' },
+        { error: "User already exists with this email" },
         { status: 409 }
-      )
+      );
     }
 
-    const hashedPassword = await hashPassword(password)
+    const hashedPassword = await hashPassword(password);
 
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        startDate: new Date(startDate),
         targetRole: targetRole || "Backend Developer",
-        targetSalary: targetSalary || "$30-40K USD"
-      }
-    })
+        targetSalary: targetSalary || "$30-40K USD",
+      },
+    });
 
     await setAuthCookie({
       id: user.id,
@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        startDate: user.startDate,
+
         targetRole: user.targetRole,
-        targetSalary: user.targetSalary
-      }
-    })
+        targetSalary: user.targetSalary,
+      },
+    });
   } catch (error) {
     console.error('Registration error:', error)
     return NextResponse.json(

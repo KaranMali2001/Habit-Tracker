@@ -110,7 +110,14 @@ export async function POST(request: NextRequest) {
       });
       createdCount = result.count;
     }
-
+await prisma.user.update({
+  where: {
+    id: user.id,
+  },
+  data: {
+    endDate: end,
+  },
+});
     return NextResponse.json({
       message: `Successfully created ${createdCount} tasks`,
       tasksCreated: createdCount,

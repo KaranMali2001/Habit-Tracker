@@ -118,7 +118,8 @@ model User {
   name      String
   
   // Bootcamp info
-  startDate DateTime @db.Date
+  startDate DateTime? @db.Date
+  endDate DateTime? @db.Date
   targetRole String @default("Backend Developer")
   targetSalary String @default("$30-40K USD")
   
