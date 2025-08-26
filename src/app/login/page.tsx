@@ -72,16 +72,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-900 transition-colors px-4 sm:px-0">
+      <div className="max-w-md w-full space-y-6 sm:space-y-8 p-6 sm:p-8 bg-neutral-800 rounded-lg shadow-xl border border-neutral-700">
         <div>
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100">Sign In</h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">Track your bootcamp progress</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-center text-neutral-100">Sign In</h2>
+          <p className="mt-2 text-center text-sm text-neutral-400">Track your bootcamp progress</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div>
-            <Label htmlFor="email" className="text-gray-700 dark:text-gray-200">
+            <Label htmlFor="email" className="text-neutral-200">
               Email
             </Label>
             <Input
@@ -90,12 +90,12 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-100 focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-gray-700 dark:text-gray-200">
+            <Label htmlFor="password" className="text-neutral-200">
               Password
             </Label>
             <Input
@@ -104,13 +104,13 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-100 focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
             />
           </div>
 
-          {error && <div className="text-red-600 dark:text-red-400 text-sm text-center">{error}</div>}
+          {error && <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-600/40 rounded p-2">{error}</div>}
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" disabled={loading} className="w-full bg-rose-500 hover:bg-rose-600 text-white">
             {loading ? (
               <div className="flex items-center space-x-2">
                 <Spinner size="sm" />
@@ -123,10 +123,10 @@ export default function LoginPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-300 dark:border-gray-600" />
+              <span className="w-full border-t border-neutral-600" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">or</span>
+              <span className="px-2 bg-neutral-800 text-neutral-400">or</span>
             </div>
           </div>
 
@@ -135,7 +135,7 @@ export default function LoginPage() {
             onClick={handleInstantLogin} 
             disabled={loading} 
             variant="outline" 
-            className="w-full border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+            className="w-full border-green-400/60 text-green-400 hover:bg-green-400/10 hover:border-green-400"
           >
             {loading ? (
               <div className="flex items-center space-x-2">
@@ -148,7 +148,7 @@ export default function LoginPage() {
           </Button>
 
           <div className="text-center">
-            <Link href="/register" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
+            <Link href="/register" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
               Don&apos;t have an account? Sign up
             </Link>
           </div>

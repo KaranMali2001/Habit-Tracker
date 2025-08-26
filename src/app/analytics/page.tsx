@@ -3,8 +3,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader } from '@/components/ui/spinner';
-import { ArrowLeft, BarChart3, Calendar, PieChart, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BarChart3, Calendar, PieChart, TrendingUp, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   Bar,
@@ -27,71 +28,75 @@ interface AnalyticsData {
   categoryDistribution: Array<{ category: string; completed: number; color: string }>;
   weeklyProgress: Array<{ week: number; completionRate: number; totalMinutes: number }>;
   moodEnergy: Array<{ date: string; mood: number; energyLevel: number }>;
+  summary: {
+    totalTasks: number;
+    completedTasks: number;
+    skippedTasks: number;
+    avgCompletionRate: number;
+    totalMinutes: number;
+    avgEnergyLevel: number;
+  };
 }
-
-const CATEGORY_COLORS = {
-  DSA: '#3B82F6',
-  PROJECT: '#10B981',
-  WRITING: '#8B5CF6',
-  LEARNING: '#F59E0B',
-  APPLICATION: '#EF4444',
-  INTERVIEW_PREP: '#6366F1',
-};
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState('30'); // Last 30 days
+  const [error, setError] = useState('');
+  const [dateRange, setDateRange] = useState('30');
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    fetchAnalyticsData();
-  }, [dateRange]);
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchAnalyticsData();
+    }
+  }, [dateRange, user]);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      router.push('/login');
+    }
+  };
 
   const fetchAnalyticsData = async () => {
     try {
-      // Since we don't have a dedicated analytics API, we'll fetch data from existing endpoints
-      // In a real app, you'd have a dedicated analytics API
       setLoading(true);
+      setError('');
 
-      // Mock data for demonstration
-      const mockData: AnalyticsData = {
-        dailyCompletion: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          completionRate: Math.random() * 0.4 + 0.6, // 60-100%
-          totalTasks: Math.floor(Math.random() * 5) + 5, // 5-10 tasks
-          completedTasks: 0,
-        })).map((item) => ({
-          ...item,
-          completedTasks: Math.floor(item.totalTasks * item.completionRate),
-        })),
+      const response = await fetch(`/api/analytics?days=${dateRange}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
 
-        categoryDistribution: [
-          { category: 'DSA', completed: 45, color: CATEGORY_COLORS.DSA },
-          { category: 'PROJECT', completed: 32, color: CATEGORY_COLORS.PROJECT },
-          { category: 'WRITING', completed: 18, color: CATEGORY_COLORS.WRITING },
-          { category: 'LEARNING', completed: 28, color: CATEGORY_COLORS.LEARNING },
-          { category: 'APPLICATION', completed: 12, color: CATEGORY_COLORS.APPLICATION },
-          { category: 'INTERVIEW_PREP', completed: 8, color: CATEGORY_COLORS.INTERVIEW_PREP },
-        ],
-
-        weeklyProgress: Array.from({ length: 8 }, (_, i) => ({
-          week: i + 1,
-          completionRate: Math.random() * 0.3 + 0.65, // 65-95%
-          totalMinutes: Math.floor(Math.random() * 300) + 200, // 200-500 minutes
-        })),
-
-        moodEnergy: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          mood: Math.floor(Math.random() * 3) + 3, // 3-5 (NEUTRAL to EXCELLENT)
-          energyLevel: Math.floor(Math.random() * 4) + 6, // 6-10
-        })),
-      };
-
-      setData(mockData);
+      const result = await response.json();
+      setData(result.analytics);
     } catch (error) {
       console.error('Failed to fetch analytics data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load analytics');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
 
@@ -99,129 +104,163 @@ export default function AnalyticsPage() {
     return <Loader message="Loading analytics..." fullScreen />;
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg">Failed to load analytics data</div>
+      <div className="min-h-screen bg-neutral-900 text-neutral-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg text-red-400 mb-4">{error || 'Failed to load analytics data'}</div>
+          <Button onClick={fetchAnalyticsData} variant="outline">
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
 
-  const totalTasks = data.categoryDistribution.reduce((sum, cat) => sum + cat.completed, 0);
-  const avgCompletionRate = data.dailyCompletion.reduce((sum, day) => sum + day.completionRate, 0) / data.dailyCompletion.length;
-  const totalMinutes = data.weeklyProgress.reduce((sum, week) => sum + week.totalMinutes, 0);
-  const avgEnergyLevel = data.moodEnergy.reduce((sum, day) => sum + day.energyLevel, 0) / data.moodEnergy.length;
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-900 text-neutral-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-neutral-800/60 border-b border-neutral-600/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 sm:py-0 sm:h-16 gap-4 sm:gap-0">
             <div className="flex items-center space-x-4">
               <Link href="/">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-neutral-300 hover:text-neutral-100">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
+                  <span className="hidden sm:inline">Back to Dashboard</span>
+                  <span className="sm:hidden">Back</span>
                 </Button>
               </Link>
-              <h1 className="text-xl font-semibold text-gray-900">Analytics Dashboard</h1>
+              <h1 className="text-lg sm:text-xl font-semibold text-rose-300">Analytics Dashboard</h1>
+              {user && <span className="hidden md:inline text-sm text-neutral-400">Welcome, {user.name}</span>}
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-sm text-neutral-200 focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
               >
                 <option value="7">Last 7 days</option>
                 <option value="30">Last 30 days</option>
                 <option value="90">Last 90 days</option>
               </select>
-              <Link href="/weekly">
-                <Button variant="outline">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Weekly Reports
+              <div className="flex space-x-2">
+                <Link href="/weekly">
+                  <Button variant="outline" size="sm" className="border-neutral-600 text-neutral-300 hover:bg-neutral-700">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Weekly Reports</span>
+                    <span className="sm:hidden">Weekly</span>
+                  </Button>
+                </Link>
+                <Button variant="outline" onClick={handleLogout} size="sm" className="border-neutral-600 text-neutral-300 hover:bg-neutral-700">
+                  <LogOut className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
-              </Link>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-blue-500" />
-                <span className="text-sm font-medium text-gray-700">Avg Completion</span>
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                <span className="text-xs sm:text-sm font-medium text-neutral-300">Avg Completion</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{Math.round(avgCompletionRate * 100)}%</div>
+              <div className="text-lg sm:text-2xl font-bold text-neutral-100 mt-1 sm:mt-2">
+                {Math.round((data.summary.avgCompletionRate || 0) * 100)}%
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <BarChart3 className="w-5 h-5 text-green-500" />
-                <span className="text-sm font-medium text-gray-700">Total Tasks</span>
+                <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                <span className="text-xs sm:text-sm font-medium text-neutral-300">Total Tasks</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{totalTasks}</div>
+              <div className="text-lg sm:text-2xl font-bold text-neutral-100 mt-1 sm:mt-2">
+                {data.summary.totalTasks || 0}
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <PieChart className="w-5 h-5 text-purple-500" />
-                <span className="text-sm font-medium text-gray-700">Total Hours</span>
+                <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                <span className="text-xs sm:text-sm font-medium text-neutral-300">Total Hours</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{Math.round(totalMinutes / 60)}h</div>
+              <div className="text-lg sm:text-2xl font-bold text-neutral-100 mt-1 sm:mt-2">
+                {Math.round((data.summary.totalMinutes || 0) / 60)}h
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-orange-500" />
-                <span className="text-sm font-medium text-gray-700">Avg Energy</span>
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
+                <span className="text-xs sm:text-sm font-medium text-neutral-300">Avg Energy</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{Math.round(avgEnergyLevel * 10) / 10}/10</div>
+              <div className="text-lg sm:text-2xl font-bold text-neutral-100 mt-1 sm:mt-2">
+                {Math.round((data.summary.avgEnergyLevel || 5) * 10) / 10}/10
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Daily Completion Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Completion Rate</CardTitle>
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-sm sm:text-base text-neutral-200">Daily Completion Rate</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-2 sm:p-6 pt-2">
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.dailyCompletion}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
-                  <YAxis tickFormatter={(value) => `${Math.round(value * 100)}%`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#525252" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `${Math.round(value * 100)}%`}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
                   <Tooltip
                     labelFormatter={(date) => new Date(date).toLocaleDateString()}
                     formatter={(value) => [`${Math.round(Number(value) * 100)}%`, 'Completion Rate']}
+                    contentStyle={{ 
+                      backgroundColor: '#404040', 
+                      border: '1px solid #525252',
+                      borderRadius: '6px',
+                      color: '#e5e5e5'
+                    }}
                   />
-                  <Line type="monotone" dataKey="completionRate" stroke="#3B82F6" strokeWidth={2} dot={{ fill: '#3B82F6' }} />
+                  <Line type="monotone" dataKey="completionRate" stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', strokeWidth: 0, r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           {/* Category Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Categories</CardTitle>
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-sm sm:text-base text-neutral-200">Task Categories</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-2 sm:p-6 pt-2">
+              <ResponsiveContainer width="100%" height={250}>
                 <RechartsPieChart>
                   <Pie
                     data={data.categoryDistribution}
@@ -230,54 +269,99 @@ export default function AnalyticsPage() {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="completed"
-                    label={({ category, percent }) => `${category} ${(percent?.toFixed(2) ?? 0).toString()}%`}
+                    label={({ category, percent }) => `${category} ${(percent ? percent.toFixed(1) : '0')}%`}
                   >
                     {data.categoryDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#404040', 
+                      border: '1px solid #525252',
+                      borderRadius: '6px',
+                      color: '#e5e5e5'
+                    }}
+                  />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           {/* Weekly Progress */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Progress</CardTitle>
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-sm sm:text-base text-neutral-200">Weekly Progress</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-2 sm:p-6 pt-2">
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={data.weeklyProgress}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" tickFormatter={(week) => `Week ${week}`} />
-                  <YAxis tickFormatter={(value) => `${Math.round(value * 100)}%`} />
-                  <Tooltip formatter={(value) => [`${Math.round(Number(value) * 100)}%`, 'Completion Rate']} />
-                  <Bar dataKey="completionRate" fill="#10B981" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#525252" />
+                  <XAxis 
+                    dataKey="week" 
+                    tickFormatter={(week) => `Week ${week}`}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `${Math.round(value * 100)}%`}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`${Math.round(Number(value) * 100)}%`, 'Completion Rate']}
+                    contentStyle={{ 
+                      backgroundColor: '#404040', 
+                      border: '1px solid #525252',
+                      borderRadius: '6px',
+                      color: '#e5e5e5'
+                    }}
+                  />
+                  <Bar dataKey="completionRate" fill="#22c55e" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           {/* Mood & Energy Correlation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mood & Energy Trends</CardTitle>
+          <Card className="bg-neutral-800/60 border-neutral-600/50">
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="text-sm sm:text-base text-neutral-200">Mood & Energy Trends</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-2 sm:p-6 pt-2">
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.moodEnergy}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
-                  <YAxis domain={[1, 10]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#525252" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
+                  <YAxis 
+                    domain={[1, 10]}
+                    tick={{ fontSize: 12, fill: '#a3a3a3' }}
+                    axisLine={{ stroke: '#525252' }}
+                    tickLine={{ stroke: '#525252' }}
+                  />
                   <Tooltip
                     labelFormatter={(date) => new Date(date).toLocaleDateString()}
                     formatter={(value, name) => [value, name === 'mood' ? 'Mood' : 'Energy Level']}
+                    contentStyle={{ 
+                      backgroundColor: '#404040', 
+                      border: '1px solid #525252',
+                      borderRadius: '6px',
+                      color: '#e5e5e5'
+                    }}
                   />
-                  <Legend />
-                  <Line type="monotone" dataKey="energyLevel" stroke="#F59E0B" strokeWidth={2} name="Energy Level" />
-                  <Line type="monotone" dataKey="mood" stroke="#8B5CF6" strokeWidth={2} name="Mood" />
+                  <Legend 
+                    wrapperStyle={{ color: '#a3a3a3', fontSize: '12px' }}
+                  />
+                  <Line type="monotone" dataKey="energyLevel" stroke="#f59e0b" strokeWidth={2} name="Energy Level" dot={{ fill: '#f59e0b', strokeWidth: 0, r: 3 }} />
+                  <Line type="monotone" dataKey="mood" stroke="#a855f7" strokeWidth={2} name="Mood" dot={{ fill: '#a855f7', strokeWidth: 0, r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
