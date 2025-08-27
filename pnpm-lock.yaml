@@ -96,6 +96,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.1.12
+      '@types/newrelic':
+        specifier: ^9.14.8
+        version: 9.14.8
       '@types/node':
         specifier: ^20
         version: 20.19.11
@@ -1142,6 +1145,9 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+
+  '@types/newrelic@9.14.8':
+    resolution: {integrity: sha512-rkOTEVR7Lui4TTEykDUxIxCbFkcI/yw3C8URLOWM84zjuHh9W35RAequHTEvGBbbrLCdn43FVTHMLji4uunDWQ==}
 
   '@types/node@20.19.11':
     resolution: {integrity: sha512-uug3FEEGv0r+jrecvUUpbY8lLisvIjg6AAic6a2bSP5OEOLeJsDSnvhCDov7ipFFMXS3orMpzlmi0ZcuGkBbow==}
@@ -4189,6 +4195,8 @@ snapshots:
   '@types/luxon@3.4.2': {}
 
   '@types/ms@2.1.0': {}
+
+  '@types/newrelic@9.14.8': {}
 
   '@types/node@20.19.11':
     dependencies:
