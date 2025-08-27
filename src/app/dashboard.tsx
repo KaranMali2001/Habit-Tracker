@@ -1,18 +1,48 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import DashboardLoader from '@/components/loading';
-import { Textarea } from '@/components/ui/textarea';
-import { DailyNote, DailyTask, Priority, TaskCategory } from '@prisma/client';
+import DashboardLoader from "@/components/loading";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from '@/components/ui/textarea';
+import ActiveSession from "@/components/dashboard/ActiveSession";
+import CompletedTasks from "@/components/dashboard/CompletedTasks";
+import QuickNotes from "@/components/dashboard/QuickNotes";
+import StatsCards from "@/components/dashboard/StatsCards";
+import TaskQueue from "@/components/dashboard/TaskQueue";
+import TodayInsights from "@/components/dashboard/TodayInsights";
+import type {
+  DailyNote,
+  DailyTask,
+  Priority,
+  TaskCategory,
+} from "@prisma/client";
+import {
+  Activity,
   AlertTriangle,
   Calendar,
   CheckCircle,
@@ -20,67 +50,96 @@ import {
   ChevronRight,
   Circle,
   Clock,
-  LogOut,
+  Home,
+  List,
+  Pause,
+  PieChart,
+  Play,
   Plus,
-  Save,
   SkipForward,
-  StickyNote,
   Target,
+  TrendingUp,
   Trophy,
   X,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
-export default function Dashboard({ task, note }: { task: DailyTask[]; note: DailyNote }) {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+export default function Dashboard({
+  task,
+  note,
+  user: initialUser,
+}: {
+  task: DailyTask[];
+  note: DailyNote;
+  user: any;
+}) {
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [tasks, setTasks] = useState<DailyTask[]>(task);
   const [dailyNote, setDailyNote] = useState<DailyNote | null>(note);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(initialUser);
   const [loading, setLoading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [skipModalOpen, setSkipModalOpen] = useState(false);
   const [taskToSkip, setTaskToSkip] = useState<string | null>(null);
-  const [skipReason, setSkipReason] = useState('');
+  const [skipReason, setSkipReason] = useState("");
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFillDates, setAutoFillDates] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 months from now
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0], // 2 months from now
   });
   const [showSkippedModal, setShowSkippedModal] = useState(false);
   const [startDateCalendarOpen, setStartDateCalendarOpen] = useState(false);
   const [endDateCalendarOpen, setEndDateCalendarOpen] = useState(false);
 
   // Local state for note content (before saving)
-  const [localUserContent, setLocalUserContent] = useState('');
-  const [localLearnings, setLocalLearnings] = useState('');
+  const [localUserContent, setLocalUserContent] = useState("");
+  const [localLearnings, setLocalLearnings] = useState("");
 
-  // Track in-progress tasks (you might want to add this to your schema later)
-  const [inProgressTaskIds, setInProgressTaskIds] = useState<Set<string>>(new Set());
+  // Track in-progress tasks and active session
+  const [inProgressTaskIds, setInProgressTaskIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [activeSession, setActiveSession] = useState<{
+    taskId: string;
+    title: string;
+    category: string;
+    priority: string;
+    startTime: string;
+    targetMinutes: number;
+    actualMinutes: number;
+    progress: number;
+  } | null>(null);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Task creation state
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTask, setNewTask] = useState({
-    title: '',
-    category: 'DSA' as TaskCategory,
-    priority: 'MEDIUM' as Priority,
-    targetMinutes: '',
-    scheduledTime: '',
+    title: "",
+    category: "DSA" as TaskCategory,
+    priority: "MEDIUM" as Priority,
+    targetMinutes: "",
+    scheduledTime: "",
   });
 
-  const router = useRouter();
-
   useEffect(() => {
-    fetchUser();
-  }, []);
-
-  useEffect(() => {
-    if (user && selectedDate !== new Date().toISOString().split('T')[0]) {
+    if (user) {
+      console.log(
+        "useEffect triggered - selectedDate:",
+        selectedDate,
+        "user:",
+        user.id
+      );
       fetchDayData();
     }
   }, [selectedDate, user]);
@@ -88,56 +147,104 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
   // Update local state when dailyNote changes
   useEffect(() => {
     if (dailyNote) {
-      setLocalUserContent(dailyNote.userContent || '');
-      setLocalLearnings(dailyNote.learnings || '');
+      setLocalUserContent(dailyNote.userContent || "");
+      setLocalLearnings(dailyNote.learnings || "");
       setHasUnsavedChanges(false);
     }
   }, [dailyNote]);
 
-  const fetchUser = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
-        router.push('/login');
-      }
-    } catch (error) {
-      console.error('Failed to fetch user:', error);
-      router.push('/login');
-    }
-  };
+  // Timer effect for active session
+  useEffect(() => {
+    if (isTimerRunning && activeSession) {
+      timerRef.current = setInterval(() => {
+        setActiveSession((prev) => {
+          if (!prev) return null;
+          const newActualMinutes = prev.actualMinutes + 1 / 60; // Add 1 second
+          const newProgress = prev.targetMinutes
+            ? Math.min((newActualMinutes / prev.targetMinutes) * 100, 100)
+            : Math.min(newActualMinutes * 2, 100); // Fallback progress calculation
 
-  const fetchDayData = async () => {
+          // Update backend every minute
+          if (Math.floor(newActualMinutes) !== Math.floor(prev.actualMinutes)) {
+            updateTaskTime(prev.taskId, Math.floor(newActualMinutes));
+          }
+
+          return {
+            ...prev,
+            actualMinutes: newActualMinutes,
+            progress: newProgress,
+          };
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isTimerRunning, activeSession]);
+
+  const fetchDayData = useCallback(async () => {
+    console.log("fetchDayData called for date:", selectedDate);
     setLoading(true);
     try {
-      const [tasksRes, noteRes] = await Promise.all([fetch(`/api/tasks/daily/${selectedDate}`), fetch(`/api/notes/${selectedDate}`)]);
+      const [tasksRes, noteRes] = await Promise.all([
+        fetch(`/api/tasks/daily/${selectedDate}`),
+        fetch(`/api/notes/${selectedDate}`),
+      ]);
 
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
-        setTasks(tasksData.tasks);
+        console.log("Tasks data received:", tasksData);
+        setTasks(tasksData.tasks || []);
+      } else {
+        console.error(
+          "Tasks fetch failed:",
+          tasksRes.status,
+          await tasksRes.text()
+        );
       }
 
       if (noteRes.ok) {
         const noteData = await noteRes.json();
+        console.log("Note data received:", noteData);
         setDailyNote(noteData.note);
+      } else {
+        console.error(
+          "Notes fetch failed:",
+          noteRes.status,
+          await noteRes.text()
+        );
       }
     } catch (error) {
-      console.error('Failed to fetch day data:', error);
+      console.error("Failed to fetch day data:", error);
+      toast.error("Failed to load data. Please refresh the page.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
 
-  const handleTaskUpdate = async (taskId: string, updates: Partial<DailyTask>) => {
+  const handleTaskUpdate = async (
+    taskId: string,
+    updates: Partial<DailyTask>
+  ) => {
     // Optimistic update
-    setTasks((prevTasks) => prevTasks.map((task) => (task.id === taskId ? { ...task, ...updates } : task)));
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === taskId ? { ...task, ...updates } : task
+      )
+    );
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
 
@@ -153,41 +260,49 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
         }
       }
     } catch (error) {
-      console.error('Failed to update task:', error);
+      console.error("Failed to update task:", error);
       await fetchDayData();
     }
   };
 
   const confirmSkipTask = () => {
     if (taskToSkip !== null) {
-      moveTaskToSkipped(taskToSkip, skipReason || 'No reason provided');
+      moveTaskToSkipped(taskToSkip, skipReason || "No reason provided");
       setSkipModalOpen(false);
       setTaskToSkip(null);
-      setSkipReason('');
+      setSkipReason("");
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
+  const navigateDate = (direction: "prev" | "next") => {
+    console.log(
+      "navigateDate called:",
+      direction,
+      "current selectedDate:",
+      selectedDate
+    );
 
-  const navigateDate = (direction: 'prev' | 'next') => {
     const currentDate = new Date(selectedDate);
-    currentDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1));
-    setSelectedDate(currentDate.toISOString().split('T')[0]);
+    currentDate.setDate(
+      currentDate.getDate() + (direction === "next" ? 1 : -1)
+    );
+
+    const newDate = currentDate.toISOString().split("T")[0];
+    console.log("Setting new selectedDate to:", newDate);
+
+    setSelectedDate(newDate);
+    // Remove manual fetchDayData() call - let useEffect handle it
   };
 
   const goToToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(new Date().toISOString().split("T")[0]);
   };
 
-  const handleNoteContentChange = (field: 'userContent' | 'learnings', value: string) => {
-    if (field === 'userContent') {
+  const handleNoteContentChange = (
+    field: "userContent" | "learnings",
+    value: string
+  ) => {
+    if (field === "userContent") {
       setLocalUserContent(value);
     } else {
       setLocalLearnings(value);
@@ -195,8 +310,10 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
 
     // Check if there are unsaved changes
     const hasChanges =
-      (field === 'userContent' ? value : localUserContent) !== (dailyNote?.userContent || '') ||
-      (field === 'learnings' ? value : localLearnings) !== (dailyNote?.learnings || '');
+      (field === "userContent" ? value : localUserContent) !==
+        (dailyNote?.userContent || "") ||
+      (field === "learnings" ? value : localLearnings) !==
+        (dailyNote?.learnings || "");
 
     setHasUnsavedChanges(hasChanges);
   };
@@ -212,8 +329,8 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
       };
 
       const response = await fetch(`/api/notes/${selectedDate}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
 
@@ -222,9 +339,62 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
         setHasUnsavedChanges(false);
       }
     } catch (error) {
-      console.error('Failed to update note:', error);
+      console.error("Failed to update note:", error);
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  // Helper function to update task actual minutes
+  const updateTaskTime = async (taskId: string, minutes: number) => {
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actualMinutes: minutes }),
+      });
+    } catch (error) {
+      console.error("Failed to update task time:", error);
+    }
+  };
+
+  // Session management functions
+  const handleStartSession = (task: DailyTask) => {
+    if (activeSession && activeSession.taskId !== task.id) {
+      // Stop current session first
+      handlePauseSession();
+    }
+
+    setActiveSession({
+      taskId: task.id,
+      title: task.title,
+      category: task.category,
+      priority: task.priority,
+      startTime: task.scheduledTime || "10:00",
+      targetMinutes: task.targetMinutes || 75,
+      actualMinutes: task.actualMinutes || 0,
+      progress:
+        task.targetMinutes && task.actualMinutes
+          ? Math.min((task.actualMinutes / task.targetMinutes) * 100, 100)
+          : 0,
+    });
+    setIsTimerRunning(true);
+    moveTaskToProgress(task.id);
+  };
+
+  const handlePauseSession = () => {
+    setIsTimerRunning(false);
+  };
+
+  const handleResumeSession = () => {
+    setIsTimerRunning(true);
+  };
+
+  const handleCompleteSession = () => {
+    if (activeSession) {
+      moveTaskToCompleted(activeSession.taskId);
+      setActiveSession(null);
+      setIsTimerRunning(false);
     }
   };
 
@@ -232,7 +402,11 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
   const moveTaskToProgress = (taskId: string) => {
     setInProgressTaskIds((prev) => new Set([...prev, taskId]));
     // Clear any completion/skip status
-    handleTaskUpdate(taskId, { completed: false, skipReason: null, completedAt: null });
+    handleTaskUpdate(taskId, {
+      completed: false,
+      skipReason: null,
+      completedAt: null,
+    });
   };
 
   const moveTaskToTodo = (taskId: string) => {
@@ -242,7 +416,11 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
       return newSet;
     });
     // Clear any completion/skip status
-    handleTaskUpdate(taskId, { completed: false, skipReason: null, completedAt: null });
+    handleTaskUpdate(taskId, {
+      completed: false,
+      skipReason: null,
+      completedAt: null,
+    });
   };
 
   const moveTaskToCompleted = (taskId: string) => {
@@ -251,6 +429,13 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
       newSet.delete(taskId);
       return newSet;
     });
+
+    // If this is the active session task, stop the session
+    if (activeSession && activeSession.taskId === taskId) {
+      setActiveSession(null);
+      setIsTimerRunning(false);
+    }
+
     handleTaskUpdate(taskId, { completed: true, completedAt: new Date() });
   };
 
@@ -260,14 +445,18 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
       newSet.delete(taskId);
       return newSet;
     });
-    handleTaskUpdate(taskId, { completed: false, skipReason: reason, completedAt: null });
+    handleTaskUpdate(taskId, {
+      completed: false,
+      skipReason: reason,
+      completedAt: null,
+    });
   };
 
   // Helper function to get task time order from database scheduledTime field
   const getTaskTimeOrder = (task: DailyTask): number => {
     // First, check if we have a scheduled time from the database
     if (task.scheduledTime) {
-      const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+      const [hours, minutes] = task.scheduledTime.split(":").map(Number);
       return hours * 100 + minutes; // e.g., "09:30" becomes 930
     }
 
@@ -275,12 +464,12 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
     const taskTitle = task.title.toLowerCase();
     const timeMatch = taskTitle.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)/i);
     if (timeMatch) {
-      let hours = parseInt(timeMatch[1]);
-      const minutes = parseInt(timeMatch[2] || '0');
+      let hours = Number.parseInt(timeMatch[1]);
+      const minutes = Number.parseInt(timeMatch[2] || "0");
       const period = timeMatch[3].toLowerCase();
 
-      if (period === 'pm' && hours !== 12) hours += 12;
-      if (period === 'am' && hours === 12) hours = 0;
+      if (period === "pm" && hours !== 12) hours += 12;
+      if (period === "am" && hours === 12) hours = 0;
 
       return hours * 100 + minutes;
     }
@@ -288,11 +477,11 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
     // Fallback: Use priority and creation order
     const baseTime = (() => {
       switch (task.priority) {
-        case 'HIGH':
+        case "HIGH":
           return 700; // 7:00 AM
-        case 'MEDIUM':
+        case "MEDIUM":
           return 1300; // 1:00 PM
-        case 'LOW':
+        case "LOW":
           return 1900; // 7:00 PM
         default:
           return 1200; // 12:00 PM
@@ -305,36 +494,55 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
     return baseTime + offset;
   };
 
-  // Filter tasks for today only and sort by time order
+  // Filter tasks for selected date only and sort by time order
   const todayTasks = tasks
     .filter((task) => {
-      const taskDate = new Date(task.date).toISOString().split('T')[0];
+      const taskDate = new Date(task.date).toISOString().split("T")[0];
+      console.log(
+        "Task filtering - taskDate:",
+        taskDate,
+        "selectedDate:",
+        selectedDate,
+        "match:",
+        taskDate === selectedDate
+      );
       return taskDate === selectedDate;
     })
     .sort((a, b) => getTaskTimeOrder(a) - getTaskTimeOrder(b));
 
+  console.log(
+    "Total tasks:",
+    tasks.length,
+    "Filtered tasks for",
+    selectedDate,
+    ":",
+    todayTasks.length
+  );
+
   // Categorize today's tasks (maintaining time order)
-  const todoTasks = todayTasks.filter((task) => !task.completed && !task.skipReason && !inProgressTaskIds.has(task.id));
-  const progressTasks = todayTasks.filter((task) => !task.completed && !task.skipReason && inProgressTaskIds.has(task.id));
+  const todoTasks = todayTasks.filter(
+    (task) =>
+      !task.completed && !task.skipReason && !inProgressTaskIds.has(task.id)
+  );
   const doneTasks = todayTasks.filter((task) => task.completed);
   const skippedTasksList = todayTasks.filter((task) => task.skipReason);
 
   const getCategoryColor = (category: TaskCategory) => {
     switch (category) {
-      case 'DSA':
-        return 'bg-rose-400/25 text-rose-200 border-rose-400/40';
-      case 'PROJECT':
-        return 'bg-pink-400/25 text-pink-200 border-pink-400/40';
-      case 'WRITING':
-        return 'bg-red-400/25 text-red-200 border-red-400/40';
-      case 'LEARNING':
-        return 'bg-green-400/25 text-green-200 border-green-400/40';
-      case 'APPLICATION':
-        return 'bg-blue-400/25 text-blue-200 border-blue-400/40';
-      case 'INTERVIEW_PREP':
-        return 'bg-purple-400/25 text-purple-200 border-purple-400/40';
+      case "DSA":
+        return "bg-rose-400/25 text-rose-200 border-rose-400/40";
+      case "PROJECT":
+        return "bg-pink-400/25 text-pink-200 border-pink-400/40";
+      case "WRITING":
+        return "bg-red-400/25 text-red-200 border-red-400/40";
+      case "LEARNING":
+        return "bg-green-400/25 text-green-200 border-green-400/40";
+      case "APPLICATION":
+        return "bg-blue-400/25 text-blue-200 border-blue-400/40";
+      case "INTERVIEW_PREP":
+        return "bg-purple-400/25 text-purple-200 border-purple-400/40";
       default:
-        return 'bg-neutral-400/25 text-neutral-200 border-neutral-400/40';
+        return "bg-neutral-400/25 text-neutral-200 border-neutral-400/40";
     }
   };
 
@@ -346,52 +554,56 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
         title: newTask.title.trim(),
         category: newTask.category,
         priority: newTask.priority,
-        targetMinutes: newTask.targetMinutes ? parseInt(newTask.targetMinutes) : null,
+        targetMinutes: newTask.targetMinutes
+          ? Number.parseInt(newTask.targetMinutes)
+          : null,
         scheduledTime: newTask.scheduledTime || null,
         date: selectedDate,
       };
 
-      const response = await fetch('/api/tasks/daily', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/tasks/daily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(taskData),
       });
 
       if (response.ok) {
         // Reset form
         setNewTask({
-          title: '',
-          category: 'DSA',
-          priority: 'MEDIUM',
-          targetMinutes: '',
-          scheduledTime: '',
+          title: "",
+          category: "DSA",
+          priority: "MEDIUM",
+          targetMinutes: "",
+          scheduledTime: "",
         });
         setShowAddTaskModal(false);
 
         // Refresh data
         await fetchDayData();
       } else {
-        console.error('Failed to create task');
+        console.error("Failed to create task");
       }
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error("Error creating task:", error);
     }
   };
 
-  const handleAutoFill = async () => {
+  const handleAutoFillSchedule = async () => {
     setIsAutoFilling(true);
-    const toastId = toast.loading('Creating tasks...');
+    const toastId = toast.loading("Creating tasks...");
 
     try {
-      const response = await fetch('/api/tasks/autofill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/tasks/autofill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(autoFillDates),
       });
 
       if (response.ok) {
         const result = await response.json();
-        toast.success(`Successfully created ${result.tasksCreated} tasks!`, { id: toastId });
+        toast.success(`Successfully created ${result.tasksCreated} tasks!`, {
+          id: toastId,
+        });
         setShowAutoFill(false);
         // Refresh the data
         await fetchDayData();
@@ -400,8 +612,10 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
         toast.error(`Error: ${error.error}`, { id: toastId });
       }
     } catch (error) {
-      console.error('Auto-fill failed:', error);
-      toast.error('Failed to auto-fill tasks. Please try again.', { id: toastId });
+      console.error("Auto-fill failed:", error);
+      toast.error("Failed to auto-fill tasks. Please try again.", {
+        id: toastId,
+      });
     } finally {
       setIsAutoFilling(false);
     }
@@ -411,251 +625,118 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
     return <DashboardLoader loadingText="Loading your dashboard..." />;
   }
 
-  const TaskCard = ({ task, status }: { task: DailyTask; status: string }) => (
-    <div className="p-4 bg-card/60 rounded-lg border border-border hover:border-primary/40 transition-colors">
-      <div className="flex items-start justify-between mb-3">
-        <h4 className="font-medium text-neutral-50 text-sm leading-tight">{task.title}</h4>
-        <div className="flex gap-1 ml-2">
-          {status === 'todo' && (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-pink-400/20"
-                onClick={() => moveTaskToProgress(task.id)}
-                title="Start task"
-              >
-                <Clock className="w-4 h-4 text-pink-300" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-green-400/20"
-                onClick={() => moveTaskToCompleted(task.id)}
-                title="Mark complete"
-              >
-                <CheckCircle className="w-4 h-4 text-green-300" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-orange-400/20"
-                onClick={() => {
-                  setTaskToSkip(task.id);
-                  setSkipModalOpen(true);
-                }}
-                title="Skip task"
-              >
-                <SkipForward className="w-3 h-3 text-orange-300" />
-              </Button>
-            </>
-          )}
-
-          {status === 'progress' && (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-neutral-400/20"
-                onClick={() => moveTaskToTodo(task.id)}
-                title="Move back to todo"
-              >
-                <Circle className="w-4 h-4 text-neutral-300" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-green-400/20"
-                onClick={() => moveTaskToCompleted(task.id)}
-                title="Mark complete"
-              >
-                <CheckCircle className="w-4 h-4 text-green-300" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-orange-400/20"
-                onClick={() => {
-                  setTaskToSkip(task.id);
-                  setSkipModalOpen(true);
-                }}
-                title="Skip task"
-              >
-                <SkipForward className="w-3 h-3 text-orange-300" />
-              </Button>
-            </>
-          )}
-
-          {status === 'done' && (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-neutral-400/20"
-                onClick={() => moveTaskToTodo(task.id)}
-                title="Move back to todo"
-              >
-                <Circle className="w-4 h-4 text-neutral-300" />
-              </Button>
-              <CheckCircle className="w-4 h-4 text-green-300" />
-            </>
-          )}
-
-          {status === 'skipped' && (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-neutral-400/20"
-                onClick={() => {
-                  handleTaskUpdate(task.id, { skipReason: null });
-                }}
-                title="Move back to todo"
-              >
-                <Circle className="w-4 h-4 text-neutral-300" />
-              </Button>
-              <X className="w-4 h-4 text-orange-300" />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Badge className={getCategoryColor(task.category)} size="sm">
-          {task.category}
-        </Badge>
-        <div className="flex items-center gap-2 text-xs text-neutral-300">
-          <span className="font-mono text-rose-200">{task.priority}</span>
-          {task.targetMinutes && (
-            <>
-              <span>•</span>
-              <span>{task.targetMinutes}min</span>
-            </>
-          )}
-          <span>•</span>
-          <span className="text-blue-300">
-            {task.scheduledTime
-              ? // Display actual scheduled time from database
-                (() => {
-                  const [hours, minutes] = task.scheduledTime.split(':').map(Number);
-                  const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-                  const period = hours >= 12 ? 'PM' : 'AM';
-                  return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-                })()
-              : // Fallback display for calculated time
-                (() => {
-                  const timeOrder = getTaskTimeOrder(task);
-                  const hours = Math.floor(timeOrder / 100);
-                  const minutes = timeOrder % 100;
-                  const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-                  const period = hours >= 12 ? 'PM' : 'AM';
-                  return `~${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-                })()}
-          </span>
-        </div>
-
-        {task.skipReason && (
-          <div className="mt-2 p-2 bg-orange-900/20 border border-orange-600/30 rounded text-xs text-orange-200">
-            <strong>Skipped:</strong> {task.skipReason}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const handleSkipTaskClick = (taskId: string) => {
+    setTaskToSkip(taskId);
+    setSkipModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-primary">Power Board</h1>
-              {user && <span className="text-sm text-muted-foreground">Welcome back, {user.name}</span>}
-            </div>
-
-            {/* Date Navigation */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <Button variant="outline" size="sm" onClick={() => navigateDate('prev')}>
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <Calendar className="w-4 h-4 text-neutral-400 hidden sm:block" />
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-32 sm:w-40 text-sm bg-neutral-700 border-neutral-600 text-neutral-200 hover:bg-neutral-600"
-                    >
-                      {new Date(selectedDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-neutral-800 border-neutral-600" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={new Date(selectedDate)}
-                      onSelect={(date) => {
-                        if (date) {
-                          setSelectedDate(date.toISOString().split('T')[0]);
-                          setCalendarOpen(false);
-                        }
-                      }}
-                      className="bg-neutral-800 text-neutral-200"
-                    />
-                  </PopoverContent>
-                </Popover>
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <Target className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold">Focused Organizer</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedDate).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    {selectedDate === new Date().toISOString().split("T")[0] &&
+                      " • Today"}
+                  </p>
+                </div>
               </div>
-
-              <Button variant="outline" size="sm" onClick={() => navigateDate('next')}>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-
-              <Button variant="outline" size="sm" onClick={goToToday} className="hidden sm:flex">
+              <nav className="hidden md:flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary bg-primary/10"
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateDate("prev")}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Previous
+                </Button>
+                <div className="px-4 py-2 text-sm font-medium text-muted-foreground">
+                  {new Date(selectedDate).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                  {selectedDate === new Date().toISOString().split("T")[0] && (
+                    <span className="ml-2 text-primary font-semibold">
+                      • Today
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateDate("next")}
+                >
+                  <ChevronRight className="h-4 w-4 mr-2" />
+                  Next
+                </Button>
+                <Link href="/analytics">
+                  <Button variant="ghost" size="sm">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Analytics
+                  </Button>
+                </Link>
+              </nav>
+            </div>
+            <div className="flex items-center gap-2">
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={new Date(selectedDate)}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date.toISOString().split("T")[0]);
+                        setCalendarOpen(false);
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button size="sm" variant="outline" onClick={goToToday}>
                 Today
               </Button>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Link href="/weekly">
-                <Button variant="outline" size="sm" className="hidden sm:flex">
-                  Weekly Reports
-                </Button>
-              </Link>
-              <Link href="/analytics">
-                <Button variant="outline" size="sm" className="hidden sm:flex">
-                  Analytics
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={handleLogout} size="sm">
-                <LogOut className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Logout</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddTaskModal(true)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Task
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto p-6 max-w-7xl">
-        <div className="mb-8">
-          <h2 className="text-xl font-medium text-rose-200 mb-2">
-            {new Date(selectedDate).toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-            {selectedDate === new Date().toISOString().split('T')[0] && (
-              <span className="ml-2 text-sm bg-rose-500 text-white px-2 py-1 rounded">Today</span>
-            )}
-          </h2>
-          <p className="text-neutral-300">Manage your daily tasks and track progress</p>
-        </div>
-
+      <main className="max-w-7xl mx-auto p-6">
         {/* Bootcamp Timeline */}
         {user && user.startDate && (
           <Card className="bg-neutral-800/60 border-neutral-600/50 mb-8">
@@ -666,49 +747,80 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                     <Target className="w-6 h-6 text-rose-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-rose-200">Bootcamp Journey</h3>
-                    <p className="text-sm text-neutral-400">{user.targetRole} • {user.targetSalary}</p>
+                    <h3 className="text-lg font-medium text-rose-200">
+                      Bootcamp Journey
+                    </h3>
+                    <p className="text-sm text-neutral-400">
+                      {user.targetRole} • {user.targetSalary}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-400" />
                   <span className="text-sm text-amber-300">
-                    Day {Math.floor((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1}
+                    Day{" "}
+                    {Math.floor(
+                      (new Date().getTime() -
+                        new Date(user.startDate).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    ) + 1}
                   </span>
                 </div>
               </div>
-              
+
               <div className="mt-6">
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-green-400 font-medium">
-                    Started: {new Date(user.startDate).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
+                    Started:{" "}
+                    {new Date(user.startDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
                     })}
                   </span>
                   <span className="text-rose-400 font-medium">
-                    Target: {new Date(new Date(user.startDate).getTime() + (100 * 24 * 60 * 60 * 1000)).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
+                    Target:{" "}
+                    {new Date(
+                      new Date(user.startDate).getTime() +
+                        100 * 24 * 60 * 60 * 1000
+                    ).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
                     })}
                   </span>
                 </div>
-                
+
                 <div className="relative h-3 bg-neutral-700 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-500 via-amber-500 to-rose-500 rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min(100, Math.max(0, ((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) / 100 * 100))}%`
+                      width: `${Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          ((new Date().getTime() -
+                            new Date(user.startDate).getTime()) /
+                            (1000 * 60 * 60 * 24) /
+                            100) *
+                            100
+                        )
+                      )}%`,
                     }}
                   />
                 </div>
-                
+
                 <div className="flex justify-between text-xs text-neutral-400 mt-2">
                   <span>Day 1</span>
                   <span className="text-neutral-200">
-                    {Math.floor(((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) / 100 * 100)}% Complete
+                    {Math.floor(
+                      ((new Date().getTime() -
+                        new Date(user.startDate).getTime()) /
+                        (1000 * 60 * 60 * 24) /
+                        100) *
+                        100
+                    )}
+                    % Complete
                   </span>
                   <span>Day 100</span>
                 </div>
@@ -717,216 +829,81 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
           </Card>
         )}
 
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <Card className="bg-neutral-800/60 border-neutral-600/50">
-            <CardContent className="p-4 text-center">
-              <Circle className="w-6 h-6 text-neutral-300 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-neutral-200">{todoTasks.length}</p>
-              <p className="text-sm text-neutral-300">To Do</p>
-            </CardContent>
-          </Card>
+        <StatsCards todayTasks={todayTasks} doneTasks={doneTasks} />
 
-          <Card className="bg-neutral-800/60 border-neutral-600/50">
-            <CardContent className="p-4 text-center">
-              <Clock className="w-6 h-6 text-pink-300 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-pink-300">{progressTasks.length}</p>
-              <p className="text-sm text-neutral-300">In Progress</p>
-            </CardContent>
-          </Card>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {activeSession && (
+              <ActiveSession
+                activeSession={activeSession}
+                isTimerRunning={isTimerRunning}
+                onPauseSession={handlePauseSession}
+                onResumeSession={handleResumeSession}
+                onCompleteSession={handleCompleteSession}
+              />
+            )}
 
-          <Card className="bg-neutral-800/60 border-neutral-600/50">
-            <CardContent className="p-4 text-center">
-              <CheckCircle className="w-6 h-6 text-green-300 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-green-300">{doneTasks.length}</p>
-              <p className="text-sm text-neutral-300">Completed</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-neutral-800/60 border-neutral-600/50">
-            <CardContent className="p-4 text-center">
-              <SkipForward className="w-6 h-6 text-orange-300 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-orange-300">{skippedTasksList.length}</p>
-              <p className="text-sm text-neutral-300">Skipped</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          <div className="xl:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="bg-neutral-800/60 border-neutral-600/50">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between text-neutral-200">
-                  <div className="flex items-center gap-2">
-                    <Circle className="w-5 h-5 text-neutral-300" />
-                    To Do
-                    <Badge className="bg-neutral-600/60 text-neutral-200">{todoTasks.length}</Badge>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowAutoFill(true)}
-                      className="h-6 w-6 p-0 hover:bg-blue-400/20 text-neutral-400 hover:text-blue-300"
-                      title="Auto-Fill Schedule"
-                    >
-                      <Calendar className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowAddTaskModal(true)}
-                      className="h-6 w-6 p-0 hover:bg-rose-400/20 text-neutral-400 hover:text-rose-300"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {todoTasks.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Circle className="w-12 h-12 text-neutral-500 mx-auto mb-3" />
-                      <p className="text-neutral-400 text-sm">No tasks for today</p>
-                      <p className="text-neutral-500 text-xs mb-3">Get started by adding tasks or use auto-fill</p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowAddTaskModal(true)}
-                          className="border-neutral-600 text-neutral-300 hover:bg-rose-500/10 hover:border-rose-400"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add Task
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowAutoFill(true)}
-                          className="border-neutral-600 text-neutral-300 hover:bg-blue-500/10 hover:border-blue-400"
-                        >
-                          <Calendar className="w-4 h-4 mr-1" />
-                          Auto-Fill
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    todoTasks.map((task) => <TaskCard key={task.id} task={task} status="todo" />)
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-neutral-800/60 border-neutral-600/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-pink-300">
-                  <Clock className="w-5 h-5" />
-                  In Progress
-                  <Badge className="bg-pink-400/25 text-pink-200 border-pink-400/40">{progressTasks.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {progressTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} status="progress" />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-neutral-800/60 border-neutral-600/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-300">
-                  <CheckCircle className="w-5 h-5" />
-                  Completed
-                  <Badge className="bg-green-400/25 text-green-200 border-green-400/40">{doneTasks.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {doneTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} status="done" />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <TaskQueue
+              todoTasks={todoTasks}
+              activeSession={activeSession}
+              onStartSession={handleStartSession}
+              onMoveToCompleted={moveTaskToCompleted}
+              onMoveToTodo={moveTaskToTodo}
+              onSkipTask={handleSkipTaskClick}
+              onUpdateTask={handleTaskUpdate}
+              onShowAddTaskModal={() => setShowAddTaskModal(true)}
+              onShowAutoFill={() => setShowAutoFill(true)}
+            />
           </div>
 
           <div className="space-y-6">
-            <Card className="bg-neutral-800/60 border-neutral-600/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-neutral-200">
-                  <StickyNote className="w-5 h-5 text-rose-300" />
-                  Daily Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-neutral-300 block mb-2">How was your day?</label>
-                    <Textarea
-                      placeholder="Write about your day..."
-                      value={localUserContent}
-                      onChange={(e) => handleNoteContentChange('userContent', e.target.value)}
-                      className="min-h-[100px] bg-neutral-700/40 border-neutral-600/50 text-neutral-200 placeholder:text-neutral-400 resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-neutral-300 block mb-2">Key learnings</label>
-                    <Textarea
-                      placeholder="What did you learn today?"
-                      value={localLearnings}
-                      onChange={(e) => handleNoteContentChange('learnings', e.target.value)}
-                      className="min-h-[100px] bg-neutral-700/40 border-neutral-600/50 text-neutral-200 placeholder:text-neutral-400 resize-none"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Button
-                      onClick={handleNoteSave}
-                      disabled={!hasUnsavedChanges || savingNote}
-                      size="sm"
-                      variant={hasUnsavedChanges ? 'default' : 'outline'}
-                      className="bg-rose-500 hover:bg-rose-600"
-                    >
-                      <Save className="w-4 h-4 mr-1" />
-                      {savingNote ? 'Saving...' : 'Save'}
-                    </Button>
-                    {hasUnsavedChanges && <span className="text-xs text-amber-400">Unsaved changes</span>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <TodayInsights
+              todayTasks={todayTasks}
+              doneTasks={doneTasks}
+              dailyNote={dailyNote}
+            />
+
+            <QuickNotes
+              localUserContent={localUserContent}
+              hasUnsavedChanges={hasUnsavedChanges}
+              savingNote={savingNote}
+              onContentChange={handleNoteContentChange}
+              onSave={handleNoteSave}
+            />
+
+            <CompletedTasks doneTasks={doneTasks} />
 
             {skippedTasksList.length > 0 && (
-              <Card className="bg-neutral-800/60 border-neutral-600/50">
+              <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-orange-300">
+                  <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <SkipForward className="w-5 h-5" />
+                      <SkipForward className="w-5 h-5 text-orange-500" />
                       Skipped Tasks
-                      <Badge className="bg-orange-400/25 text-orange-200 border-orange-400/40">{skippedTasksList.length}</Badge>
+                      <Badge variant="secondary">
+                        {skippedTasksList.length}
+                      </Badge>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setShowSkippedModal(true)}
-                      className="border-orange-400/40 text-orange-300 hover:bg-orange-400/10"
                     >
                       View All
                     </Button>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent>
                   <div className="text-center py-4">
-                    <SkipForward className="w-8 h-8 text-orange-400/60 mx-auto mb-2" />
-                    <p className="text-neutral-400 text-sm mb-2">
-                      {skippedTasksList.length} task{skippedTasksList.length !== 1 ? 's' : ''} skipped today
+                    <SkipForward className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm mb-2">
+                      {skippedTasksList.length} task
+                      {skippedTasksList.length !== 1 ? "s" : ""} skipped today
                     </p>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setShowSkippedModal(true)}
-                      className="border-orange-400/40 text-orange-300 hover:bg-orange-400/10"
                     >
                       Manage Skipped Tasks
                     </Button>
@@ -937,6 +914,7 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
           </div>
         </div>
 
+        {/* Skip Task Modal */}
         <Dialog open={skipModalOpen} onOpenChange={setSkipModalOpen}>
           <DialogContent className="bg-neutral-800 border-neutral-600">
             <DialogHeader>
@@ -945,7 +923,10 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 Skip Task Confirmation
               </DialogTitle>
               <DialogDescription className="text-neutral-300">
-                {taskToSkip !== null && `Are you sure you want to skip "${tasks.find((t) => t.id === taskToSkip)?.title}"?`}
+                {taskToSkip !== null &&
+                  `Are you sure you want to skip "${
+                    tasks.find((t) => t.id === taskToSkip)?.title
+                  }"?`}
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -957,10 +938,17 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSkipModalOpen(false)} className="border-neutral-600 text-neutral-300">
+              <Button
+                variant="outline"
+                onClick={() => setSkipModalOpen(false)}
+                className="border-neutral-600 text-neutral-300"
+              >
                 Cancel
               </Button>
-              <Button onClick={confirmSkipTask} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button
+                onClick={confirmSkipTask}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
                 Skip Task
               </Button>
             </DialogFooter>
@@ -975,7 +963,10 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 <Plus className="w-5 h-5" />
                 Add New Task
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">Create a new task for {new Date(selectedDate).toLocaleDateString()}</DialogDescription>
+              <DialogDescription className="text-neutral-300">
+                Create a new task for{" "}
+                {new Date(selectedDate).toLocaleDateString()}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -986,7 +977,9 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 <Input
                   id="taskTitle"
                   value={newTask.title}
-                  onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) =>
+                    setNewTask((prev) => ({ ...prev, title: e.target.value }))
+                  }
                   placeholder="Enter task title"
                   className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200"
                 />
@@ -997,7 +990,15 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                   <Label htmlFor="category" className="text-neutral-200">
                     Category
                   </Label>
-                  <Select value={newTask.category} onValueChange={(value) => setNewTask((prev) => ({ ...prev, category: value as TaskCategory }))}>
+                  <Select
+                    value={newTask.category}
+                    onValueChange={(value) =>
+                      setNewTask((prev) => ({
+                        ...prev,
+                        category: value as TaskCategory,
+                      }))
+                    }
+                  >
                     <SelectTrigger className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200">
                       <SelectValue />
                     </SelectTrigger>
@@ -1007,7 +1008,9 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                       <SelectItem value="WRITING">Writing</SelectItem>
                       <SelectItem value="LEARNING">Learning</SelectItem>
                       <SelectItem value="APPLICATION">Application</SelectItem>
-                      <SelectItem value="INTERVIEW_PREP">Interview Prep</SelectItem>
+                      <SelectItem value="INTERVIEW_PREP">
+                        Interview Prep
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1016,7 +1019,15 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                   <Label htmlFor="priority" className="text-neutral-200">
                     Priority
                   </Label>
-                  <Select value={newTask.priority} onValueChange={(value) => setNewTask((prev) => ({ ...prev, priority: value as Priority }))}>
+                  <Select
+                    value={newTask.priority}
+                    onValueChange={(value) =>
+                      setNewTask((prev) => ({
+                        ...prev,
+                        priority: value as Priority,
+                      }))
+                    }
+                  >
                     <SelectTrigger className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200">
                       <SelectValue />
                     </SelectTrigger>
@@ -1038,7 +1049,12 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                     id="targetMinutes"
                     type="number"
                     value={newTask.targetMinutes}
-                    onChange={(e) => setNewTask((prev) => ({ ...prev, targetMinutes: e.target.value }))}
+                    onChange={(e) =>
+                      setNewTask((prev) => ({
+                        ...prev,
+                        targetMinutes: e.target.value,
+                      }))
+                    }
                     placeholder="Expected time"
                     className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200"
                   />
@@ -1052,7 +1068,12 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                     id="scheduledTime"
                     type="time"
                     value={newTask.scheduledTime}
-                    onChange={(e) => setNewTask((prev) => ({ ...prev, scheduledTime: e.target.value }))}
+                    onChange={(e) =>
+                      setNewTask((prev) => ({
+                        ...prev,
+                        scheduledTime: e.target.value,
+                      }))
+                    }
                     className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200"
                   />
                 </div>
@@ -1060,10 +1081,18 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddTaskModal(false)} className="border-neutral-600 text-neutral-300">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddTaskModal(false)}
+                className="border-neutral-600 text-neutral-300"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleCreateTask} className="bg-rose-500 hover:bg-rose-600 text-white" disabled={!newTask.title.trim()}>
+              <Button
+                onClick={handleCreateTask}
+                className="bg-rose-500 hover:bg-rose-600 text-white"
+                disabled={!newTask.title.trim()}
+              >
                 Add Task
               </Button>
             </DialogFooter>
@@ -1078,15 +1107,19 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 <Calendar className="w-5 h-5" />
                 Auto-Fill Bootcamp Schedule
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">Create tasks based on your bootcamp routine</DialogDescription>
+              <DialogDescription className="text-neutral-300">
+                Create tasks based on your bootcamp routine
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3">
                 <p className="text-sm text-blue-200">
-                  <strong>📅 Auto-Fill Schedule</strong>
+                  <strong>📋 Auto-Fill Schedule</strong>
                   <br />
-                  Create a full day's tasks with proper timing based on your bootcamp routine. Perfect for maintaining consistency and structure.
+                  Create a full day's tasks with proper timing based on your
+                  bootcamp routine. Perfect for maintaining consistency and
+                  structure.
                 </p>
               </div>
 
@@ -1097,10 +1130,13 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                   onClick={() => {
                     const today = new Date();
                     const year = today.getFullYear();
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const day = String(today.getDate()).padStart(2, '0');
+                    const month = String(today.getMonth() + 1).padStart(2, "0");
+                    const day = String(today.getDate()).padStart(2, "0");
                     const todayFormatted = `${year}-${month}-${day}`;
-                    setAutoFillDates({ startDate: todayFormatted, endDate: todayFormatted });
+                    setAutoFillDates({
+                      startDate: todayFormatted,
+                      endDate: todayFormatted,
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1111,18 +1147,23 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                   variant="outline"
                   onClick={() => {
                     const today = new Date();
-                    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                    
+                    const nextWeek = new Date(
+                      Date.now() + 7 * 24 * 60 * 60 * 1000
+                    );
+
                     const formatDate = (date: Date) => {
                       const year = date.getFullYear();
-                      const month = String(date.getMonth() + 1).padStart(2, '0');
-                      const day = String(date.getDate()).padStart(2, '0');
+                      const month = String(date.getMonth() + 1).padStart(
+                        2,
+                        "0"
+                      );
+                      const day = String(date.getDate()).padStart(2, "0");
                       return `${year}-${month}-${day}`;
                     };
-                    
-                    setAutoFillDates({ 
-                      startDate: formatDate(today), 
-                      endDate: formatDate(nextWeek) 
+
+                    setAutoFillDates({
+                      startDate: formatDate(today),
+                      endDate: formatDate(nextWeek),
                     });
                   }}
                   className="border-neutral-600 text-neutral-300"
@@ -1134,18 +1175,23 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                   variant="outline"
                   onClick={() => {
                     const today = new Date();
-                    const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-                    
+                    const nextMonth = new Date(
+                      Date.now() + 30 * 24 * 60 * 60 * 1000
+                    );
+
                     const formatDate = (date: Date) => {
                       const year = date.getFullYear();
-                      const month = String(date.getMonth() + 1).padStart(2, '0');
-                      const day = String(date.getDate()).padStart(2, '0');
+                      const month = String(date.getMonth() + 1).padStart(
+                        2,
+                        "0"
+                      );
+                      const day = String(date.getDate()).padStart(2, "0");
                       return `${year}-${month}-${day}`;
                     };
-                    
-                    setAutoFillDates({ 
-                      startDate: formatDate(today), 
-                      endDate: formatDate(nextMonth) 
+
+                    setAutoFillDates({
+                      startDate: formatDate(today),
+                      endDate: formatDate(nextMonth),
                     });
                   }}
                   className="border-neutral-600 text-neutral-300"
@@ -1157,30 +1203,45 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-neutral-200">Start Date</Label>
-                  <Popover open={startDateCalendarOpen} onOpenChange={setStartDateCalendarOpen}>
+                  <Popover
+                    open={startDateCalendarOpen}
+                    onOpenChange={setStartDateCalendarOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className="w-full mt-1 bg-neutral-700 border-neutral-600 text-neutral-200 hover:bg-neutral-600 justify-start"
                       >
-                        {new Date(autoFillDates.startDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {new Date(autoFillDates.startDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-neutral-800 border-neutral-600" align="start">
+                    <PopoverContent
+                      className="w-auto p-0 bg-neutral-800 border-neutral-600"
+                      align="start"
+                    >
                       <CalendarComponent
                         mode="single"
                         selected={new Date(autoFillDates.startDate)}
                         onSelect={(date) => {
                           if (date) {
                             const year = date.getFullYear();
-                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                            const day = String(date.getDate()).padStart(2, '0');
+                            const month = String(date.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            );
+                            const day = String(date.getDate()).padStart(2, "0");
                             const formattedDate = `${year}-${month}-${day}`;
-                            setAutoFillDates((prev) => ({ ...prev, startDate: formattedDate }));
+                            setAutoFillDates((prev) => ({
+                              ...prev,
+                              startDate: formattedDate,
+                            }));
                             setStartDateCalendarOpen(false);
                           }
                         }}
@@ -1192,30 +1253,45 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
 
                 <div>
                   <Label className="text-neutral-200">End Date</Label>
-                  <Popover open={endDateCalendarOpen} onOpenChange={setEndDateCalendarOpen}>
+                  <Popover
+                    open={endDateCalendarOpen}
+                    onOpenChange={setEndDateCalendarOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className="w-full mt-1 bg-neutral-700 border-neutral-600 text-neutral-200 hover:bg-neutral-600 justify-start"
                       >
-                        {new Date(autoFillDates.endDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {new Date(autoFillDates.endDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-neutral-800 border-neutral-600" align="start">
+                    <PopoverContent
+                      className="w-auto p-0 bg-neutral-800 border-neutral-600"
+                      align="start"
+                    >
                       <CalendarComponent
                         mode="single"
                         selected={new Date(autoFillDates.endDate)}
                         onSelect={(date) => {
                           if (date) {
                             const year = date.getFullYear();
-                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                            const day = String(date.getDate()).padStart(2, '0');
+                            const month = String(date.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            );
+                            const day = String(date.getDate()).padStart(2, "0");
                             const formattedDate = `${year}-${month}-${day}`;
-                            setAutoFillDates((prev) => ({ ...prev, endDate: formattedDate }));
+                            setAutoFillDates((prev) => ({
+                              ...prev,
+                              endDate: formattedDate,
+                            }));
                             setEndDateCalendarOpen(false);
                           }
                         }}
@@ -1247,11 +1323,19 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAutoFill(false)} className="border-neutral-600 text-neutral-300">
+              <Button
+                variant="outline"
+                onClick={() => setShowAutoFill(false)}
+                className="border-neutral-600 text-neutral-300"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleAutoFill} disabled={isAutoFilling} className="bg-blue-500 hover:bg-blue-600 text-white">
-                {isAutoFilling ? <>Creating Tasks...</> : 'Auto-Fill Tasks'}
+              <Button
+                onClick={handleAutoFillSchedule}
+                disabled={isAutoFilling}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                {isAutoFilling ? <>Creating Tasks...</> : "Auto-Fill Tasks"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1265,7 +1349,10 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 <SkipForward className="w-5 h-5" />
                 Skipped Tasks ({skippedTasksList.length})
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">Manage your skipped tasks - you can move them back to your todo list</DialogDescription>
+              <DialogDescription className="text-neutral-300">
+                Manage your skipped tasks - you can move them back to your todo
+                list
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -1276,16 +1363,30 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
                 </div>
               ) : (
                 skippedTasksList.map((task) => (
-                  <div key={task.id} className="p-4 bg-orange-900/20 border border-orange-600/30 rounded-lg">
+                  <div
+                    key={task.id}
+                    className="p-4 bg-orange-900/20 border border-orange-600/30 rounded-lg"
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-medium text-orange-200 text-sm leading-tight mb-1">{task.title}</h4>
+                        <h4 className="font-medium text-orange-200 text-sm leading-tight mb-1">
+                          {task.title}
+                        </h4>
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge className={getCategoryColor(task.category)} size="sm">
+                          <Badge
+                            className={getCategoryColor(task.category)}
+                            size="sm"
+                          >
                             {task.category}
                           </Badge>
-                          <span className="text-xs text-orange-300 font-mono">{task.priority}</span>
-                          {task.targetMinutes && <span className="text-xs text-orange-300">{task.targetMinutes}min</span>}
+                          <span className="text-xs text-orange-300 font-mono">
+                            {task.priority}
+                          </span>
+                          {task.targetMinutes && (
+                            <span className="text-xs text-orange-300">
+                              {task.targetMinutes}min
+                            </span>
+                          )}
                         </div>
                         {task.skipReason && (
                           <div className="text-xs text-orange-400 bg-orange-900/30 p-2 rounded border border-orange-600/20">
@@ -1313,13 +1414,17 @@ export default function Dashboard({ task, note }: { task: DailyTask[]; note: Dai
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowSkippedModal(false)} className="border-neutral-600 text-neutral-300">
+              <Button
+                variant="outline"
+                onClick={() => setShowSkippedModal(false)}
+                className="border-neutral-600 text-neutral-300"
+              >
                 Close
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </main>
     </div>
   );
 }
