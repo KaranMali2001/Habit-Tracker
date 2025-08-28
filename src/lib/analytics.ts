@@ -165,14 +165,14 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
     currentDate.setDate(startDate.getDate() + i);
     const dateStr = currentDate.toISOString().split('T')[0];
 
-    const dayTasks = tasks.filter((task) => {
+    const dayTasks = tasks.filter((task: any) => {
       const taskDate = new Date(task.date).toISOString().split('T')[0];
       return taskDate === dateStr;
     });
 
     const totalTasks = dayTasks.length;
-    const completedTasks = dayTasks.filter((task) => task.completed).length;
-    const skippedTasks = dayTasks.filter((task) => task.skipReason).length;
+    const completedTasks = dayTasks.filter((task: any) => task.completed).length;
+    const skippedTasks = dayTasks.filter((task: any) => task.skipReason).length;
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
     
     // Productivity score: (completed - skipped) / total * 100
@@ -190,7 +190,7 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
 
   // Enhanced category distribution with totals and percentages
   const categoryStats: Record<string, { completed: number; total: number }> = {};
-  tasks.forEach((task) => {
+  tasks.forEach((task: any) => {
     if (!categoryStats[task.category]) {
       categoryStats[task.category] = { completed: 0, total: 0 };
     }
@@ -212,7 +212,7 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
 
   // Priority analysis
   const priorityStats: Record<string, { completed: number; total: number }> = {};
-  tasks.forEach((task) => {
+  tasks.forEach((task: any) => {
     if (!priorityStats[task.priority]) {
       priorityStats[task.priority] = { completed: 0, total: 0 };
     }
@@ -240,21 +240,21 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    const weekTasks = tasks.filter((task) => {
+    const weekTasks = tasks.filter((task: any) => {
       const taskDate = new Date(task.date);
       return taskDate >= weekStart && taskDate <= weekEnd;
     });
 
     const totalTasks = weekTasks.length;
-    const completedTasks = weekTasks.filter((task) => task.completed).length;
+    const completedTasks = weekTasks.filter((task: any) => task.completed).length;
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
 
-    const weekNotes = notes.filter((note) => {
+    const weekNotes = notes.filter((note: any) => {
       const noteDate = new Date(note.date);
       return noteDate >= weekStart && noteDate <= weekEnd;
     });
 
-    const totalMinutes = weekNotes.reduce((sum, note) => sum + (note.totalMinutes || 0), 0);
+    const totalMinutes = weekNotes.reduce((sum: number, note: any) => sum + (note.totalMinutes || 0), 0);
     const activeDays = weekNotes.length;
     const avgDailyTasks = activeDays > 0 ? totalTasks / activeDays : 0;
 
@@ -268,7 +268,7 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
 
   // Time distribution by category
   const timeStats: Record<string, number> = {};
-  tasks.forEach((task) => {
+  tasks.forEach((task: any) => {
     if (task.completed && task.actualMinutes) {
       timeStats[task.category] = (timeStats[task.category] || 0) + task.actualMinutes;
     }
@@ -291,7 +291,7 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
     currentDate.setDate(startDate.getDate() + i);
     const dateStr = currentDate.toISOString().split('T')[0];
 
-    const dayNote = notes.find((note) => 
+    const dayNote = notes.find((note: any) => 
       new Date(note.date).toISOString().split('T')[0] === dateStr
     );
     
@@ -312,8 +312,8 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
   const streakAnalysis = calculateStreaks(dailyCompletion);
 
   // Advanced summary with insights
-  const completedTasksList = tasks.filter(t => t.completed);
-  const skippedTasksList = tasks.filter(t => t.skipReason);
+  const completedTasksList = tasks.filter((t: any) => t.completed);
+  const skippedTasksList = tasks.filter((t: any) => t.skipReason);
   
   // Find most productive day
   const mostProductiveDay = dailyCompletion.reduce((prev, current) => 
@@ -337,7 +337,7 @@ export async function getAnalyticsData(userId: string, days: number = 30): Promi
     improvementAreas.push('Low completion rate');
   }
 
-  const totalMinutesFromNotes = notes.reduce((sum, note) => sum + (note.totalMinutes || 0), 0);
+  const totalMinutesFromNotes = notes.reduce((sum: number, note: any) => sum + (note.totalMinutes || 0), 0);
   const avgMoodScore = moodEnergyComplete.reduce((sum, item) => sum + item.mood, 0) / (moodEnergyComplete.length || 1);
   const avgEnergyScore = moodEnergyComplete.reduce((sum, item) => sum + item.energyLevel, 0) / (moodEnergyComplete.length || 1);
 
