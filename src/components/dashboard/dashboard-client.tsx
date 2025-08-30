@@ -1,48 +1,26 @@
-'use client'
+'use client';
 
-import { useTasks, useUpdateTask, useCreateTask } from '@/hooks/use-tasks'
-import { useNotes, useUpdateNote } from '@/hooks/use-notes'
-import DashboardLoader from "@/components/loading"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from '@/components/ui/textarea'
-import ActiveSession from "@/components/dashboard/ActiveSession"
-import CompletedTasks from "@/components/dashboard/CompletedTasks"
-import QuickNotes from "@/components/dashboard/QuickNotes"
-import StatsCards from "@/components/dashboard/StatsCards"
-import TaskQueue from "@/components/dashboard/TaskQueue"
-import TodayInsights from "@/components/dashboard/TodayInsights"
-import type {
-  DailyNote,
-  DailyTask,
-  Priority,
-  TaskCategory,
-} from "@prisma/client"
+import { useTasks, useUpdateTask, useCreateTask } from '@/hooks/use-tasks';
+import { useNotes, useUpdateNote } from '@/hooks/use-notes';
+import DashboardLoader from '@/components/loading';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import ActiveSession from '@/components/dashboard/ActiveSession';
+import CompletedTasks from '@/components/dashboard/CompletedTasks';
+import QuickNotes from '@/components/dashboard/QuickNotes';
+import StatsCards from '@/components/dashboard/StatsCards';
+import TaskQueue from '@/components/dashboard/TaskQueue';
+import TodayInsights from '@/components/dashboard/TodayInsights';
+import type { DailyNote, DailyTask, Priority, TaskCategory } from '@prisma/client';
 import {
   Activity,
   AlertTriangle,
@@ -63,219 +41,242 @@ import {
   TrendingUp,
   Trophy,
   X,
-} from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
-import toast from "react-hot-toast"
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface DashboardClientProps {
-  initialTasks: DailyTask[]
-  initialNote: DailyNote
-  user: any
+  initialTasks: DailyTask[];
+  initialNote: DailyNote;
+  user: any;
 }
 
-export default function DashboardClient({ 
-  initialTasks, 
-  initialNote, 
-  user: initialUser 
-}: DashboardClientProps) {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  )
-  const [calendarOpen, setCalendarOpen] = useState(false)
-  const [user, setUser] = useState<any>(initialUser)
-  const [savingNote, setSavingNote] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [skipModalOpen, setSkipModalOpen] = useState(false)
-  const [taskToSkip, setTaskToSkip] = useState<string | null>(null)
-  const [skipReason, setSkipReason] = useState("")
-  const [showAutoFill, setShowAutoFill] = useState(false)
-  const [isAutoFilling, setIsAutoFilling] = useState(false)
+export default function DashboardClient({ initialTasks, initialNote, user: initialUser }: DashboardClientProps) {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [user, setUser] = useState<any>(initialUser);
+  const [savingNote, setSavingNote] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
+  const [taskToSkip, setTaskToSkip] = useState<string | null>(null);
+  const [skipReason, setSkipReason] = useState('');
+  const [showAutoFill, setShowAutoFill] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFillDates, setAutoFillDates] = useState({
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0], // 2 months from now
-  })
-  const [showSkippedModal, setShowSkippedModal] = useState(false)
-  const [startDateCalendarOpen, setStartDateCalendarOpen] = useState(false)
-  const [endDateCalendarOpen, setEndDateCalendarOpen] = useState(false)
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 months from now
+  });
+  const [showSkippedModal, setShowSkippedModal] = useState(false);
+  const [startDateCalendarOpen, setStartDateCalendarOpen] = useState(false);
+  const [endDateCalendarOpen, setEndDateCalendarOpen] = useState(false);
 
   // Local state for note content (before saving)
-  const [localUserContent, setLocalUserContent] = useState("")
-  const [localLearnings, setLocalLearnings] = useState("")
+  const [localUserContent, setLocalUserContent] = useState('');
+  const [localLearnings, setLocalLearnings] = useState('');
 
   // Track in-progress tasks and active session
-  const [inProgressTaskIds, setInProgressTaskIds] = useState<Set<string>>(
-    new Set()
-  )
+  const [inProgressTaskIds, setInProgressTaskIds] = useState<Set<string>>(new Set());
   const [activeSession, setActiveSession] = useState<{
-    taskId: string
-    title: string
-    category: string
-    priority: string
-    startTime: string
-    targetMinutes: number
-    actualMinutes: number
-    progress: number
-  } | null>(null)
-  const [isTimerRunning, setIsTimerRunning] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+    taskId: string;
+    title: string;
+    category: string;
+    priority: string;
+    startTime: string;
+    targetMinutes: number;
+    actualMinutes: number;
+    progress: number;
+  } | null>(null);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Task creation state
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false)
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTask, setNewTask] = useState({
-    title: "",
-    category: "DSA" as TaskCategory,
-    priority: "MEDIUM" as Priority,
-    targetMinutes: "",
-    scheduledTime: "",
-  })
+    title: '',
+    category: 'DSA' as TaskCategory,
+    priority: 'MEDIUM' as Priority,
+    targetMinutes: '',
+    scheduledTime: '',
+  });
 
   // React Query hooks
-  const { data: tasks = initialTasks, isLoading: tasksLoading } = useTasks(selectedDate)
-  const { data: dailyNote = initialNote, isLoading: noteLoading } = useNotes(selectedDate)
-  const updateTaskMutation = useUpdateTask()
-  const createTaskMutation = useCreateTask()
-  const updateNoteMutation = useUpdateNote()
+  const { data: tasks = initialTasks, isLoading: tasksLoading } = useTasks(selectedDate);
+  const { data: dailyNote = initialNote, isLoading: noteLoading } = useNotes(selectedDate);
+  const updateTaskMutation = useUpdateTask();
+  const createTaskMutation = useCreateTask();
+  const updateNoteMutation = useUpdateNote();
 
   // Update local state when dailyNote changes
   useEffect(() => {
     if (dailyNote) {
-      setLocalUserContent(dailyNote.userContent || "")
-      setLocalLearnings(dailyNote.learnings || "")
-      setHasUnsavedChanges(false)
+      setLocalUserContent(dailyNote.userContent || '');
+      setLocalLearnings(dailyNote.learnings || '');
+      setHasUnsavedChanges(false);
     }
-  }, [dailyNote])
+  }, [dailyNote]);
+
+  // Load timer state from localStorage on component mount
+  useEffect(() => {
+    const savedTimerState = localStorage.getItem('activeTaskTimer');
+    if (savedTimerState) {
+      try {
+        const timerData = JSON.parse(savedTimerState);
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - timerData.lastUpdated) / 1000);
+        
+        // Only restore if the timer was running and it's been less than 24 hours
+        if (timerData.isRunning && elapsedSeconds < 86400) {
+          const updatedMinutes = timerData.actualMinutes + (elapsedSeconds / 60);
+          const updatedProgress = timerData.targetMinutes 
+            ? Math.min((updatedMinutes / timerData.targetMinutes) * 100, 100)
+            : Math.min(updatedMinutes * 2, 100);
+
+          setActiveSession({
+            ...timerData,
+            actualMinutes: updatedMinutes,
+            progress: updatedProgress
+          });
+          setIsTimerRunning(true);
+          setInProgressTaskIds(prev => new Set([...prev, timerData.taskId]));
+        }
+      } catch (error) {
+        console.error('Failed to restore timer state:', error);
+        localStorage.removeItem('activeTaskTimer');
+      }
+    }
+  }, []);
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    if (activeSession) {
+      const timerState = {
+        ...activeSession,
+        isRunning: isTimerRunning,
+        lastUpdated: Date.now()
+      };
+      localStorage.setItem('activeTaskTimer', JSON.stringify(timerState));
+    } else {
+      localStorage.removeItem('activeTaskTimer');
+    }
+  }, [activeSession, isTimerRunning]);
 
   // Timer effect for active session
   useEffect(() => {
     if (isTimerRunning && activeSession) {
       timerRef.current = setInterval(() => {
         setActiveSession((prev) => {
-          if (!prev) return null
-          const newActualMinutes = prev.actualMinutes + 1 / 60 // Add 1 second
-          const newProgress = prev.targetMinutes
-            ? Math.min((newActualMinutes / prev.targetMinutes) * 100, 100)
-            : Math.min(newActualMinutes * 2, 100) // Fallback progress calculation
+          if (!prev) return null;
+          const newActualMinutes = prev.actualMinutes + 1 / 60; // Add 1 second
+          const newProgress = prev.targetMinutes ? Math.min((newActualMinutes / prev.targetMinutes) * 100, 100) : Math.min(newActualMinutes * 2, 100); // Fallback progress calculation
 
           // Update backend every minute
           if (Math.floor(newActualMinutes) !== Math.floor(prev.actualMinutes)) {
-            updateTaskTime(prev.taskId, Math.floor(newActualMinutes))
+            updateTaskTime(prev.taskId, Math.floor(newActualMinutes));
           }
 
           return {
             ...prev,
             actualMinutes: newActualMinutes,
             progress: newProgress,
-          }
-        })
-      }, 1000)
+          };
+        });
+      }, 1000);
     } else {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     }
 
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
+        clearInterval(timerRef.current);
       }
-    }
-  }, [isTimerRunning, activeSession])
+    };
+  }, [isTimerRunning, activeSession]);
 
-  const handleTaskUpdate = async (
-    taskId: string,
-    updates: Partial<DailyTask>
-  ) => {
-    updateTaskMutation.mutate({ taskId, updates })
-  }
+  const handleTaskUpdate = async (taskId: string, updates: Partial<DailyTask>) => {
+    updateTaskMutation.mutate({ taskId, updates });
+  };
 
   const confirmSkipTask = () => {
     if (taskToSkip !== null) {
-      moveTaskToSkipped(taskToSkip, skipReason || "No reason provided")
-      setSkipModalOpen(false)
-      setTaskToSkip(null)
-      setSkipReason("")
+      moveTaskToSkipped(taskToSkip, skipReason || 'No reason provided');
+      setSkipModalOpen(false);
+      setTaskToSkip(null);
+      setSkipReason('');
     }
-  }
+  };
 
-  const navigateDate = (direction: "prev" | "next") => {
-    const currentDate = new Date(selectedDate)
-    currentDate.setDate(
-      currentDate.getDate() + (direction === "next" ? 1 : -1)
-    )
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1));
 
-    const newDate = currentDate.toISOString().split("T")[0]
-    setSelectedDate(newDate)
-  }
+    const newDate = currentDate.toISOString().split('T')[0];
+    setSelectedDate(newDate);
+  };
 
   const goToToday = () => {
-    setSelectedDate(new Date().toISOString().split("T")[0])
-  }
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+  };
 
-  const handleNoteContentChange = (
-    field: "userContent" | "learnings",
-    value: string
-  ) => {
-    if (field === "userContent") {
-      setLocalUserContent(value)
+  const handleNoteContentChange = (field: 'userContent' | 'learnings', value: string) => {
+    if (field === 'userContent') {
+      setLocalUserContent(value);
     } else {
-      setLocalLearnings(value)
+      setLocalLearnings(value);
     }
 
     // Check if there are unsaved changes
     const hasChanges =
-      (field === "userContent" ? value : localUserContent) !==
-        (dailyNote?.userContent || "") ||
-      (field === "learnings" ? value : localLearnings) !==
-        (dailyNote?.learnings || "")
+      (field === 'userContent' ? value : localUserContent) !== (dailyNote?.userContent || '') ||
+      (field === 'learnings' ? value : localLearnings) !== (dailyNote?.learnings || '');
 
-    setHasUnsavedChanges(hasChanges)
-  }
+    setHasUnsavedChanges(hasChanges);
+  };
 
   const handleNoteSave = async () => {
-    if (!dailyNote || !hasUnsavedChanges) return
+    if (!dailyNote || !hasUnsavedChanges) return;
 
-    setSavingNote(true)
+    setSavingNote(true);
     try {
       const updates = {
         userContent: localUserContent,
         learnings: localLearnings,
-      }
+      };
 
-      await updateNoteMutation.mutateAsync({ 
-        date: selectedDate, 
-        updates 
-      })
-      setHasUnsavedChanges(false)
+      await updateNoteMutation.mutateAsync({
+        date: selectedDate,
+        updates,
+      });
+      setHasUnsavedChanges(false);
     } catch (error) {
-      console.error("Failed to update note:", error)
-      toast.error("Failed to save note")
+      console.error('Failed to update note:', error);
+      toast.error('Failed to save note');
     } finally {
-      setSavingNote(false)
+      setSavingNote(false);
     }
-  }
+  };
 
   // Helper function to update task actual minutes
   const updateTaskTime = async (taskId: string, minutes: number) => {
     try {
       await updateTaskMutation.mutateAsync({
         taskId,
-        updates: { actualMinutes: minutes }
-      })
+        updates: { actualMinutes: minutes },
+      });
     } catch (error) {
-      console.error("Failed to update task time:", error)
+      console.error('Failed to update task time:', error);
     }
-  }
+  };
 
   // Session management functions
   const handleStartSession = (task: DailyTask) => {
     if (activeSession && activeSession.taskId !== task.id) {
       // Stop current session first
-      handlePauseSession()
+      handlePauseSession();
     }
 
     setActiveSession({
@@ -283,338 +284,330 @@ export default function DashboardClient({
       title: task.title,
       category: task.category,
       priority: task.priority,
-      startTime: task.scheduledTime || "10:00",
+      startTime: task.scheduledTime || '10:00',
       targetMinutes: task.targetMinutes || 75,
       actualMinutes: task.actualMinutes || 0,
-      progress:
-        task.targetMinutes && task.actualMinutes
-          ? Math.min((task.actualMinutes / task.targetMinutes) * 100, 100)
-          : 0,
-    })
-    setIsTimerRunning(true)
-    moveTaskToProgress(task.id)
-  }
+      progress: task.targetMinutes && task.actualMinutes ? Math.min((task.actualMinutes / task.targetMinutes) * 100, 100) : 0,
+    });
+    setIsTimerRunning(true);
+    moveTaskToProgress(task.id);
+  };
 
   const handlePauseSession = () => {
-    setIsTimerRunning(false)
-  }
+    setIsTimerRunning(false);
+  };
 
   const handleResumeSession = () => {
-    setIsTimerRunning(true)
-  }
+    setIsTimerRunning(true);
+  };
 
   const handleCompleteSession = () => {
     if (activeSession) {
-      moveTaskToCompleted(activeSession.taskId)
-      setActiveSession(null)
-      setIsTimerRunning(false)
+      moveTaskToCompleted(activeSession.taskId);
+      setActiveSession(null);
+      setIsTimerRunning(false);
     }
-  }
+  };
 
   // Task status transition functions
   const moveTaskToProgress = (taskId: string) => {
-    setInProgressTaskIds((prev) => new Set([...prev, taskId]))
+    setInProgressTaskIds((prev) => new Set([...prev, taskId]));
     // Clear any completion/skip status
     handleTaskUpdate(taskId, {
       completed: false,
       skipReason: null,
       completedAt: null,
-    })
-  }
+    });
+  };
 
   const moveTaskToTodo = (taskId: string) => {
     setInProgressTaskIds((prev) => {
-      const newSet = new Set(prev)
-      newSet.delete(taskId)
-      return newSet
-    })
+      const newSet = new Set(prev);
+      newSet.delete(taskId);
+      return newSet;
+    });
     // Clear any completion/skip status
     handleTaskUpdate(taskId, {
       completed: false,
       skipReason: null,
       completedAt: null,
-    })
-  }
+    });
+  };
 
   const moveTaskToCompleted = (taskId: string) => {
     setInProgressTaskIds((prev) => {
-      const newSet = new Set(prev)
-      newSet.delete(taskId)
-      return newSet
-    })
+      const newSet = new Set(prev);
+      newSet.delete(taskId);
+      return newSet;
+    });
 
     // If this is the active session task, stop the session
     if (activeSession && activeSession.taskId === taskId) {
-      setActiveSession(null)
-      setIsTimerRunning(false)
+      setActiveSession(null);
+      setIsTimerRunning(false);
     }
 
-    handleTaskUpdate(taskId, { completed: true, completedAt: new Date() })
-  }
+    handleTaskUpdate(taskId, { completed: true, completedAt: new Date() });
+  };
 
   const moveTaskToSkipped = (taskId: string, reason: string) => {
     setInProgressTaskIds((prev) => {
-      const newSet = new Set(prev)
-      newSet.delete(taskId)
-      return newSet
-    })
+      const newSet = new Set(prev);
+      newSet.delete(taskId);
+      return newSet;
+    });
     handleTaskUpdate(taskId, {
       completed: false,
       skipReason: reason,
       completedAt: null,
-    })
-  }
+    });
+  };
 
   // Helper function to get task time order from database scheduledTime field
   const getTaskTimeOrder = (task: DailyTask): number => {
     // First, check if we have a scheduled time from the database
     if (task.scheduledTime) {
-      const [hours, minutes] = task.scheduledTime.split(":").map(Number)
-      return hours * 100 + minutes // e.g., "09:30" becomes 930
+      const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+      return hours * 100 + minutes; // e.g., "09:30" becomes 930
     }
 
     // If no scheduled time, try to extract from title for backward compatibility
-    const taskTitle = task.title.toLowerCase()
-    const timeMatch = taskTitle.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)/i)
+    const taskTitle = task.title.toLowerCase();
+    const timeMatch = taskTitle.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)/i);
     if (timeMatch) {
-      let hours = Number.parseInt(timeMatch[1])
-      const minutes = Number.parseInt(timeMatch[2] || "0")
-      const period = timeMatch[3].toLowerCase()
+      let hours = Number.parseInt(timeMatch[1]);
+      const minutes = Number.parseInt(timeMatch[2] || '0');
+      const period = timeMatch[3].toLowerCase();
 
-      if (period === "pm" && hours !== 12) hours += 12
-      if (period === "am" && hours === 12) hours = 0
+      if (period === 'pm' && hours !== 12) hours += 12;
+      if (period === 'am' && hours === 12) hours = 0;
 
-      return hours * 100 + minutes
+      return hours * 100 + minutes;
     }
 
     // Fallback: Use priority and creation order
     const baseTime = (() => {
       switch (task.priority) {
-        case "HIGH":
-          return 700 // 7:00 AM
-        case "MEDIUM":
-          return 1300 // 1:00 PM
-        case "LOW":
-          return 1900 // 7:00 PM
+        case 'HIGH':
+          return 700; // 7:00 AM
+        case 'MEDIUM':
+          return 1300; // 1:00 PM
+        case 'LOW':
+          return 1900; // 7:00 PM
         default:
-          return 1200 // 12:00 PM
+          return 1200; // 12:00 PM
       }
-    })()
+    })();
 
     // Add a small offset based on creation time to maintain consistent ordering
-    const createdAt = new Date(task.createdAt).getTime()
-    const offset = Math.floor((createdAt % 1000) / 100) // Small offset 0-9
-    return baseTime + offset
-  }
+    const createdAt = new Date(task.createdAt).getTime();
+    const offset = Math.floor((createdAt % 1000) / 100); // Small offset 0-9
+    return baseTime + offset;
+  };
 
   // Filter tasks for selected date only and sort by time order
   const todayTasks = tasks
     .filter((task) => {
-      const taskDate = new Date(task.date).toISOString().split("T")[0]
-      return taskDate === selectedDate
+      const taskDate = new Date(task.date).toISOString().split('T')[0];
+      return taskDate === selectedDate;
     })
-    .sort((a, b) => getTaskTimeOrder(a) - getTaskTimeOrder(b))
+    .sort((a, b) => getTaskTimeOrder(a) - getTaskTimeOrder(b));
 
   // Categorize today's tasks (maintaining time order)
-  const todoTasks = todayTasks.filter(
-    (task) =>
-      !task.completed && !task.skipReason && !inProgressTaskIds.has(task.id)
-  )
-  const doneTasks = todayTasks.filter((task) => task.completed)
-  const skippedTasksList = todayTasks.filter((task) => task.skipReason)
+  const todoTasks = todayTasks.filter((task) => !task.completed && !task.skipReason && !inProgressTaskIds.has(task.id));
+  const doneTasks = todayTasks.filter((task) => task.completed);
+  const skippedTasksList = todayTasks.filter((task) => task.skipReason);
 
   const getCategoryColor = (category: TaskCategory) => {
     switch (category) {
-      case "DSA":
-        return "bg-rose-400/25 text-rose-200 border-rose-400/40"
-      case "PROJECT":
-        return "bg-pink-400/25 text-pink-200 border-pink-400/40"
-      case "WRITING":
-        return "bg-red-400/25 text-red-200 border-red-400/40"
-      case "LEARNING":
-        return "bg-green-400/25 text-green-200 border-green-400/40"
-      case "APPLICATION":
-        return "bg-blue-400/25 text-blue-200 border-blue-400/40"
-      case "INTERVIEW_PREP":
-        return "bg-purple-400/25 text-purple-200 border-purple-400/40"
+      case 'DSA':
+        return 'bg-rose-400/25 text-rose-200 border-rose-400/40';
+      case 'PROJECT':
+        return 'bg-pink-400/25 text-pink-200 border-pink-400/40';
+      case 'WRITING':
+        return 'bg-red-400/25 text-red-200 border-red-400/40';
+      case 'LEARNING':
+        return 'bg-green-400/25 text-green-200 border-green-400/40';
+      case 'APPLICATION':
+        return 'bg-blue-400/25 text-blue-200 border-blue-400/40';
+      case 'INTERVIEW_PREP':
+        return 'bg-purple-400/25 text-purple-200 border-purple-400/40';
       default:
-        return "bg-neutral-400/25 text-neutral-200 border-neutral-400/40"
+        return 'bg-neutral-400/25 text-neutral-200 border-neutral-400/40';
     }
-  }
+  };
 
   const handleCreateTask = async () => {
-    if (!newTask.title.trim()) return
+    if (!newTask.title.trim()) return;
 
     try {
       const taskData = {
         title: newTask.title.trim(),
         category: newTask.category,
         priority: newTask.priority,
-        targetMinutes: newTask.targetMinutes
-          ? Number.parseInt(newTask.targetMinutes)
-          : undefined,
+        targetMinutes: newTask.targetMinutes ? Number.parseInt(newTask.targetMinutes) : undefined,
         scheduledTime: newTask.scheduledTime || undefined,
         date: selectedDate,
-      }
+      };
 
-      await createTaskMutation.mutateAsync(taskData)
+      const response = await createTaskMutation.mutateAsync(taskData);
+      const createdTask = response.task;
+
+      // Auto-start timer for the new task
+      if (createdTask) {
+        // Stop any existing session first
+        if (activeSession) {
+          handlePauseSession();
+        }
+
+        // Start new session with the created task
+        setActiveSession({
+          taskId: createdTask.id,
+          title: createdTask.title,
+          category: createdTask.category,
+          priority: createdTask.priority,
+          startTime: createdTask.scheduledTime || new Date().toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          targetMinutes: createdTask.targetMinutes || 60, // Default 60 minutes
+          actualMinutes: 0,
+          progress: 0,
+        });
+        setIsTimerRunning(true);
+        setInProgressTaskIds(prev => new Set([...prev, createdTask.id]));
+        
+        toast.success('🚀 Task created and timer started!');
+      }
 
       // Reset form
       setNewTask({
-        title: "",
-        category: "DSA",
-        priority: "MEDIUM",
-        targetMinutes: "",
-        scheduledTime: "",
-      })
-      setShowAddTaskModal(false)
-      toast.success("Task created successfully")
+        title: '',
+        category: 'DSA',
+        priority: 'MEDIUM',
+        targetMinutes: '',
+        scheduledTime: '',
+      });
+      setShowAddTaskModal(false);
     } catch (error) {
-      console.error("Error creating task:", error)
-      toast.error("Failed to create task")
+      console.error('Error creating task:', error);
+      toast.error('Failed to create task');
     }
-  }
+  };
 
   const handleAutoFillSchedule = async () => {
-    setIsAutoFilling(true)
-    const toastId = toast.loading("Creating tasks...")
+    setIsAutoFilling(true);
+    const toastId = toast.loading('Creating tasks...');
 
     try {
-      const response = await fetch("/api/tasks/autofill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/tasks/autofill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(autoFillDates),
-      })
+      });
 
       if (response.ok) {
-        const result = await response.json()
+        const result = await response.json();
         toast.success(`Successfully created ${result.tasksCreated} tasks!`, {
           id: toastId,
-        })
-        setShowAutoFill(false)
+        });
+        setShowAutoFill(false);
       } else {
-        const error = await response.json()
-        toast.error(`Error: ${error.error}`, { id: toastId })
+        const error = await response.json();
+        toast.error(`Error: ${error.error}`, { id: toastId });
       }
     } catch (error) {
-      console.error("Auto-fill failed:", error)
-      toast.error("Failed to auto-fill tasks. Please try again.", {
+      console.error('Auto-fill failed:', error);
+      toast.error('Failed to auto-fill tasks. Please try again.', {
         id: toastId,
-      })
+      });
     } finally {
-      setIsAutoFilling(false)
+      setIsAutoFilling(false);
     }
-  }
+  };
 
   if (tasksLoading || noteLoading) {
-    return <DashboardLoader loadingText="Loading your dashboard..." />
+    return <DashboardLoader loadingText="Loading your dashboard..." />;
   }
 
   const handleSkipTaskClick = (taskId: string) => {
-    setTaskToSkip(taskId)
-    setSkipModalOpen(true)
-  }
+    setTaskToSkip(taskId);
+    setSkipModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <Target className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold">Focused Organizer</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(selectedDate).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                    {selectedDate === new Date().toISOString().split("T")[0] &&
-                      " • Today"}
-                  </p>
-                </div>
+            {/* Left side - Logo and Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <Target className="h-5 w-5 text-primary-foreground" />
               </div>
-              <nav className="hidden md:flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-primary bg-primary/10"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Dashboard
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigateDate("prev")}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Previous
-                </Button>
-                <div className="px-4 py-2 text-sm font-medium text-muted-foreground">
-                  {new Date(selectedDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
+              <div>
+                <h1 className="text-lg font-semibold">Habit Tracker</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">
+                  {new Date(selectedDate).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
                   })}
-                  {selectedDate === new Date().toISOString().split("T")[0] && (
-                    <span className="ml-2 text-primary font-semibold">
-                      • Today
-                    </span>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigateDate("next")}
-                >
-                  <ChevronRight className="h-4 w-4 mr-2" />
-                  Next
-                </Button>
-                <Link href="/analytics">
-                  <Button variant="ghost" size="sm">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Analytics
-                  </Button>
-                </Link>
-              </nav>
+                  {selectedDate === new Date().toISOString().split('T')[0] && ' • Today'}
+                </p>
+              </div>
             </div>
+
+            {/* Center - Date Navigation */}
+            <div className="hidden sm:flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={() => navigateDate('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="px-3 py-1 text-sm font-medium min-w-[100px] text-center">
+                {selectedDate === new Date().toISOString().split('T')[0] ? (
+                  <span className="text-primary font-semibold">Today</span>
+                ) : (
+                  new Date(selectedDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigateDate('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Right side - Actions */}
             <div className="flex items-center gap-2">
+              <Link href="/analytics" className="hidden md:block">
+                <Button variant="ghost" size="sm">
+                  <TrendingUp className="h-4 w-4" />
+                </Button>
+              </Link>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="ghost">
                     <Calendar className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0" align="end">
                   <CalendarComponent
                     mode="single"
                     selected={new Date(selectedDate)}
                     onSelect={(date) => {
                       if (date) {
-                        setSelectedDate(date.toISOString().split("T")[0])
-                        setCalendarOpen(false)
+                        setSelectedDate(date.toISOString().split('T')[0]);
+                        setCalendarOpen(false);
                       }
                     }}
                   />
                 </PopoverContent>
               </Popover>
-              <Button size="sm" variant="outline" onClick={goToToday}>
-                Today
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowAddTaskModal(true)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Task
+              <Button size="sm" onClick={() => setShowAddTaskModal(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add Task</span>
               </Button>
             </div>
           </div>
@@ -632,9 +625,7 @@ export default function DashboardClient({
                     <Target className="w-6 h-6 text-rose-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-rose-200">
-                      Bootcamp Journey
-                    </h3>
+                    <h3 className="text-lg font-medium text-rose-200">Bootcamp Journey</h3>
                     <p className="text-sm text-neutral-400">
                       {user.targetRole} • {user.targetSalary}
                     </p>
@@ -643,12 +634,7 @@ export default function DashboardClient({
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-400" />
                   <span className="text-sm text-amber-300">
-                    Day{" "}
-                    {Math.floor(
-                      (new Date().getTime() -
-                        new Date(user.startDate).getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    ) + 1}
+                    Day {Math.floor((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1}
                   </span>
                 </div>
               </div>
@@ -656,22 +642,19 @@ export default function DashboardClient({
               <div className="mt-6">
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-green-400 font-medium">
-                    Started:{" "}
-                    {new Date(user.startDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
+                    Started:{' '}
+                    {new Date(user.startDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
                     })}
                   </span>
                   <span className="text-rose-400 font-medium">
-                    Target:{" "}
-                    {new Date(
-                      new Date(user.startDate).getTime() +
-                        100 * 24 * 60 * 60 * 1000
-                    ).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
+                    Target:{' '}
+                    {new Date(new Date(user.startDate).getTime() + 100 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
                     })}
                   </span>
                 </div>
@@ -682,14 +665,7 @@ export default function DashboardClient({
                     style={{
                       width: `${Math.min(
                         100,
-                        Math.max(
-                          0,
-                          ((new Date().getTime() -
-                            new Date(user.startDate).getTime()) /
-                            (1000 * 60 * 60 * 24) /
-                            100) *
-                            100
-                        )
+                        Math.max(0, ((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24) / 100) * 100)
                       )}%`,
                     }}
                   />
@@ -698,14 +674,7 @@ export default function DashboardClient({
                 <div className="flex justify-between text-xs text-neutral-400 mt-2">
                   <span>Day 1</span>
                   <span className="text-neutral-200">
-                    {Math.floor(
-                      ((new Date().getTime() -
-                        new Date(user.startDate).getTime()) /
-                        (1000 * 60 * 60 * 24) /
-                        100) *
-                        100
-                    )}
-                    % Complete
+                    {Math.floor(((new Date().getTime() - new Date(user.startDate).getTime()) / (1000 * 60 * 60 * 24) / 100) * 100)}% Complete
                   </span>
                   <span>Day 100</span>
                 </div>
@@ -742,11 +711,7 @@ export default function DashboardClient({
           </div>
 
           <div className="space-y-6">
-            <TodayInsights
-              todayTasks={todayTasks}
-              doneTasks={doneTasks}
-              dailyNote={dailyNote}
-            />
+            <TodayInsights todayTasks={todayTasks} doneTasks={doneTasks} dailyNote={dailyNote} />
 
             <QuickNotes
               localUserContent={localUserContent}
@@ -765,15 +730,9 @@ export default function DashboardClient({
                     <div className="flex items-center gap-2">
                       <SkipForward className="w-5 h-5 text-orange-500" />
                       Skipped Tasks
-                      <Badge variant="secondary">
-                        {skippedTasksList.length}
-                      </Badge>
+                      <Badge variant="secondary">{skippedTasksList.length}</Badge>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowSkippedModal(true)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setShowSkippedModal(true)}>
                       View All
                     </Button>
                   </CardTitle>
@@ -783,13 +742,9 @@ export default function DashboardClient({
                     <SkipForward className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-muted-foreground text-sm mb-2">
                       {skippedTasksList.length} task
-                      {skippedTasksList.length !== 1 ? "s" : ""} skipped today
+                      {skippedTasksList.length !== 1 ? 's' : ''} skipped today
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowSkippedModal(true)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setShowSkippedModal(true)}>
                       Manage Skipped Tasks
                     </Button>
                   </div>
@@ -809,10 +764,7 @@ export default function DashboardClient({
                 Skip Task Confirmation
               </DialogTitle>
               <DialogDescription className="text-neutral-300">
-                {taskToSkip !== null &&
-                  `Are you sure you want to skip "${
-                    tasks.find((t) => t.id === taskToSkip)?.title
-                  }"?`}
+                {taskToSkip !== null && `Are you sure you want to skip "${tasks.find((t) => t.id === taskToSkip)?.title}"?`}
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -824,17 +776,10 @@ export default function DashboardClient({
               />
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setSkipModalOpen(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setSkipModalOpen(false)} className="border-neutral-600 text-neutral-300">
                 Cancel
               </Button>
-              <Button
-                onClick={confirmSkipTask}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-              >
+              <Button onClick={confirmSkipTask} className="bg-orange-500 hover:bg-orange-600 text-white">
                 Skip Task
               </Button>
             </DialogFooter>
@@ -849,10 +794,7 @@ export default function DashboardClient({
                 <Plus className="w-5 h-5" />
                 Add New Task
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">
-                Create a new task for{" "}
-                {new Date(selectedDate).toLocaleDateString()}
-              </DialogDescription>
+              <DialogDescription className="text-neutral-300">Create a new task for {new Date(selectedDate).toLocaleDateString()}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -863,9 +805,7 @@ export default function DashboardClient({
                 <Input
                   id="taskTitle"
                   value={newTask.title}
-                  onChange={(e) =>
-                    setNewTask((prev) => ({ ...prev, title: e.target.value }))
-                  }
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Enter task title"
                   className="mt-1 bg-neutral-700 border-neutral-600 text-neutral-200"
                 />
@@ -894,9 +834,7 @@ export default function DashboardClient({
                       <SelectItem value="WRITING">Writing</SelectItem>
                       <SelectItem value="LEARNING">Learning</SelectItem>
                       <SelectItem value="APPLICATION">Application</SelectItem>
-                      <SelectItem value="INTERVIEW_PREP">
-                        Interview Prep
-                      </SelectItem>
+                      <SelectItem value="INTERVIEW_PREP">Interview Prep</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -967,18 +905,10 @@ export default function DashboardClient({
             </div>
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowAddTaskModal(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setShowAddTaskModal(false)} className="border-neutral-600 text-neutral-300">
                 Cancel
               </Button>
-              <Button
-                onClick={handleCreateTask}
-                className="bg-rose-500 hover:bg-rose-600 text-white"
-                disabled={!newTask.title.trim()}
-              >
+              <Button onClick={handleCreateTask} className="bg-rose-500 hover:bg-rose-600 text-white" disabled={!newTask.title.trim()}>
                 Add Task
               </Button>
             </DialogFooter>
@@ -993,9 +923,7 @@ export default function DashboardClient({
                 <Calendar className="w-5 h-5" />
                 Auto-Fill Bootcamp Schedule
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">
-                Create tasks based on your bootcamp routine
-              </DialogDescription>
+              <DialogDescription className="text-neutral-300">Create tasks based on your bootcamp routine</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -1003,9 +931,7 @@ export default function DashboardClient({
                 <p className="text-sm text-blue-200">
                   <strong>📋 Auto-Fill Schedule</strong>
                   <br />
-                  Create a full day's tasks with proper timing based on your
-                  bootcamp routine. Perfect for maintaining consistency and
-                  structure.
+                  Create a full day's tasks with proper timing based on your bootcamp routine. Perfect for maintaining consistency and structure.
                 </p>
               </div>
 
@@ -1014,15 +940,15 @@ export default function DashboardClient({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date()
-                    const year = today.getFullYear()
-                    const month = String(today.getMonth() + 1).padStart(2, "0")
-                    const day = String(today.getDate()).padStart(2, "0")
-                    const todayFormatted = `${year}-${month}-${day}`
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    const todayFormatted = `${year}-${month}-${day}`;
                     setAutoFillDates({
                       startDate: todayFormatted,
                       endDate: todayFormatted,
-                    })
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1032,25 +958,20 @@ export default function DashboardClient({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date()
-                    const nextWeek = new Date(
-                      Date.now() + 7 * 24 * 60 * 60 * 1000
-                    )
+                    const today = new Date();
+                    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                     const formatDate = (date: Date) => {
-                      const year = date.getFullYear()
-                      const month = String(date.getMonth() + 1).padStart(
-                        2,
-                        "0"
-                      )
-                      const day = String(date.getDate()).padStart(2, "0")
-                      return `${year}-${month}-${day}`
-                    }
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    };
 
                     setAutoFillDates({
                       startDate: formatDate(today),
                       endDate: formatDate(nextWeek),
-                    })
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1060,25 +981,20 @@ export default function DashboardClient({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const today = new Date()
-                    const nextMonth = new Date(
-                      Date.now() + 30 * 24 * 60 * 60 * 1000
-                    )
+                    const today = new Date();
+                    const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
                     const formatDate = (date: Date) => {
-                      const year = date.getFullYear()
-                      const month = String(date.getMonth() + 1).padStart(
-                        2,
-                        "0"
-                      )
-                      const day = String(date.getDate()).padStart(2, "0")
-                      return `${year}-${month}-${day}`
-                    }
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    };
 
                     setAutoFillDates({
                       startDate: formatDate(today),
                       endDate: formatDate(nextMonth),
-                    })
+                    });
                   }}
                   className="border-neutral-600 text-neutral-300"
                 >
@@ -1089,46 +1005,34 @@ export default function DashboardClient({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-neutral-200">Start Date</Label>
-                  <Popover
-                    open={startDateCalendarOpen}
-                    onOpenChange={setStartDateCalendarOpen}
-                  >
+                  <Popover open={startDateCalendarOpen} onOpenChange={setStartDateCalendarOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className="w-full mt-1 bg-neutral-700 border-neutral-600 text-neutral-200 hover:bg-neutral-600 justify-start"
                       >
-                        {new Date(autoFillDates.startDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
+                        {new Date(autoFillDates.startDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 bg-neutral-800 border-neutral-600"
-                      align="start"
-                    >
+                    <PopoverContent className="w-auto p-0 bg-neutral-800 border-neutral-600" align="start">
                       <CalendarComponent
                         mode="single"
                         selected={new Date(autoFillDates.startDate)}
                         onSelect={(date) => {
                           if (date) {
-                            const year = date.getFullYear()
-                            const month = String(date.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            )
-                            const day = String(date.getDate()).padStart(2, "0")
-                            const formattedDate = `${year}-${month}-${day}`
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const formattedDate = `${year}-${month}-${day}`;
                             setAutoFillDates((prev) => ({
                               ...prev,
                               startDate: formattedDate,
-                            }))
-                            setStartDateCalendarOpen(false)
+                            }));
+                            setStartDateCalendarOpen(false);
                           }
                         }}
                         className="bg-neutral-800 text-neutral-200"
@@ -1139,46 +1043,34 @@ export default function DashboardClient({
 
                 <div>
                   <Label className="text-neutral-200">End Date</Label>
-                  <Popover
-                    open={endDateCalendarOpen}
-                    onOpenChange={setEndDateCalendarOpen}
-                  >
+                  <Popover open={endDateCalendarOpen} onOpenChange={setEndDateCalendarOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className="w-full mt-1 bg-neutral-700 border-neutral-600 text-neutral-200 hover:bg-neutral-600 justify-start"
                       >
-                        {new Date(autoFillDates.endDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
+                        {new Date(autoFillDates.endDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 bg-neutral-800 border-neutral-600"
-                      align="start"
-                    >
+                    <PopoverContent className="w-auto p-0 bg-neutral-800 border-neutral-600" align="start">
                       <CalendarComponent
                         mode="single"
                         selected={new Date(autoFillDates.endDate)}
                         onSelect={(date) => {
                           if (date) {
-                            const year = date.getFullYear()
-                            const month = String(date.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            )
-                            const day = String(date.getDate()).padStart(2, "0")
-                            const formattedDate = `${year}-${month}-${day}`
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const formattedDate = `${year}-${month}-${day}`;
                             setAutoFillDates((prev) => ({
                               ...prev,
                               endDate: formattedDate,
-                            }))
-                            setEndDateCalendarOpen(false)
+                            }));
+                            setEndDateCalendarOpen(false);
                           }
                         }}
                         className="bg-neutral-800 text-neutral-200"
@@ -1209,19 +1101,11 @@ export default function DashboardClient({
             </div>
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowAutoFill(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setShowAutoFill(false)} className="border-neutral-600 text-neutral-300">
                 Cancel
               </Button>
-              <Button
-                onClick={handleAutoFillSchedule}
-                disabled={isAutoFilling}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                {isAutoFilling ? <>Creating Tasks...</> : "Auto-Fill Tasks"}
+              <Button onClick={handleAutoFillSchedule} disabled={isAutoFilling} className="bg-blue-500 hover:bg-blue-600 text-white">
+                {isAutoFilling ? <>Creating Tasks...</> : 'Auto-Fill Tasks'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1235,10 +1119,7 @@ export default function DashboardClient({
                 <SkipForward className="w-5 h-5" />
                 Skipped Tasks ({skippedTasksList.length})
               </DialogTitle>
-              <DialogDescription className="text-neutral-300">
-                Manage your skipped tasks - you can move them back to your todo
-                list
-              </DialogDescription>
+              <DialogDescription className="text-neutral-300">Manage your skipped tasks - you can move them back to your todo list</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -1249,30 +1130,16 @@ export default function DashboardClient({
                 </div>
               ) : (
                 skippedTasksList.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-4 bg-orange-900/20 border border-orange-600/30 rounded-lg"
-                  >
+                  <div key={task.id} className="p-4 bg-orange-900/20 border border-orange-600/30 rounded-lg">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-medium text-orange-200 text-sm leading-tight mb-1">
-                          {task.title}
-                        </h4>
+                        <h4 className="font-medium text-orange-200 text-sm leading-tight mb-1">{task.title}</h4>
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge
-                            className={getCategoryColor(task.category)}
-                            size="sm"
-                          >
+                          <Badge className={getCategoryColor(task.category)} size="sm">
                             {task.category}
                           </Badge>
-                          <span className="text-xs text-orange-300 font-mono">
-                            {task.priority}
-                          </span>
-                          {task.targetMinutes && (
-                            <span className="text-xs text-orange-300">
-                              {task.targetMinutes}min
-                            </span>
-                          )}
+                          <span className="text-xs text-orange-300 font-mono">{task.priority}</span>
+                          {task.targetMinutes && <span className="text-xs text-orange-300">{task.targetMinutes}min</span>}
                         </div>
                         {task.skipReason && (
                           <div className="text-xs text-orange-400 bg-orange-900/30 p-2 rounded border border-orange-600/20">
@@ -1285,7 +1152,7 @@ export default function DashboardClient({
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            handleTaskUpdate(task.id, { skipReason: null })
+                            handleTaskUpdate(task.id, { skipReason: null });
                           }}
                           className="border-green-600 text-green-300 hover:bg-green-500/10 hover:border-green-500"
                         >
@@ -1300,11 +1167,7 @@ export default function DashboardClient({
             </div>
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowSkippedModal(false)}
-                className="border-neutral-600 text-neutral-300"
-              >
+              <Button variant="outline" onClick={() => setShowSkippedModal(false)} className="border-neutral-600 text-neutral-300">
                 Close
               </Button>
             </DialogFooter>
@@ -1312,5 +1175,5 @@ export default function DashboardClient({
         </Dialog>
       </main>
     </div>
-  )
+  );
 }

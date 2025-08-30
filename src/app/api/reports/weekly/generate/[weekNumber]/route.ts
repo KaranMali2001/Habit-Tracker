@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const startDate = new Date(userProfile.startDate)
+    const startDate = new Date(userProfile.startDate!)
     const weekStartDate = new Date(startDate.getTime() + (weekNum - 1) * 7 * 24 * 60 * 60 * 1000)
     const weekEndDate = new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000)
 

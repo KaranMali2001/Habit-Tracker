@@ -58,7 +58,7 @@ export default async function Page() {
       <HydrationBoundary state={dehydrate(queryClient)}>
         <DashboardClient 
           initialTasks={tasks} 
-          initialNote={finalNotes} 
+          initialNote={finalNotes!} 
           user={user} 
         />
       </HydrationBoundary>
