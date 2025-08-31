@@ -41,7 +41,7 @@ model DailyTask {
 
 model DailyNote {
   id          String   @id @default(cuid())
-  date        DateTime @unique @db.Date
+  date        DateTime @db.Date
   
   // Auto-generated content from tasks
   autoContent String?  // Generated from skip reasons

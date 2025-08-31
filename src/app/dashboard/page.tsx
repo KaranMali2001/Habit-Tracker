@@ -18,7 +18,7 @@ export default async function Page() {
     const queryClient = new QueryClient();
 
     // Pre-fetch data for React Query
-    const [tasks, notes] = await Promise.all([
+    const [tasks, finalNotes] = await Promise.all([
       prisma.dailyTask.findMany({
         where: {
           userId: user.id,
@@ -26,8 +26,15 @@ export default async function Page() {
         },
         orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
       }),
-      prisma.dailyNote.findFirst({
+      prisma.dailyNote.upsert({
         where: {
+          userId_date: {
+            userId: user.id,
+            date: today,
+          },
+        },
+        update: {},
+        create: {
           userId: user.id,
           date: today,
         },
@@ -36,19 +43,6 @@ export default async function Page() {
         },
       }),
     ]);
-
-    let finalNotes = notes;
-    if (!notes) {
-      finalNotes = await prisma.dailyNote.create({
-        data: {
-          userId: user.id,
-          date: today,
-        },
-        include: {
-          tasks: true,
-        },
-      });
-    }
 
     // Pre-populate the query cache
     queryClient.setQueryData(['tasks', todayStr], tasks);

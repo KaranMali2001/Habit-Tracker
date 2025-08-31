@@ -2,6 +2,7 @@
 
 import { useTasks, useUpdateTask, useCreateTask } from '@/hooks/use-tasks';
 import { useNotes, useUpdateNote } from '@/hooks/use-notes';
+import { useLogout } from '@/hooks/use-auth';
 import DashboardLoader from '@/components/loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import {
   Clock,
   Home,
   List,
+  LogOut,
   Pause,
   PieChart,
   Play,
@@ -107,6 +109,7 @@ export default function DashboardClient({ initialTasks, initialNote, user: initi
   const updateTaskMutation = useUpdateTask();
   const createTaskMutation = useCreateTask();
   const updateNoteMutation = useUpdateNote();
+  const logoutMutation = useLogout();
 
   // Update local state when dailyNote changes
   useEffect(() => {
@@ -527,6 +530,10 @@ export default function DashboardClient({ initialTasks, initialNote, user: initi
     }
   };
 
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+
   if (tasksLoading || noteLoading) {
     return <DashboardLoader loadingText="Loading your dashboard..." />;
   }
@@ -608,6 +615,15 @@ export default function DashboardClient({ initialTasks, initialNote, user: initi
               <Button size="sm" onClick={() => setShowAddTaskModal(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Add Task</span>
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={handleLogout}
+                disabled={logoutMutation.isPending}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
